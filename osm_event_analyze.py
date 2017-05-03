@@ -600,7 +600,7 @@ class OsmDataEventPlot():
             plt.show()
 
     def plot_data_changes_pie(self, output=None):
-        """Plot the percentual of """
+        """Plot the percentual of modified data in a pie"""
         labels = ['Old data modified', 'New data modified',
                   'Data not modified']
         fig, axis = plt.subplots(figsize=(8, 3), nrows=3)
@@ -618,8 +618,65 @@ class OsmDataEventPlot():
             plt.savefig(output)
         else:
             plt.show()
+
+    def plot_geomtag_diff_histo(self, output=None):
+        """Plot different between geometry and tags changes"""
+        width = 0.5
+        xs = range(len(self.datadata.keys()))
+        x_label = []
+        y_geomnew = []
+        y_geomold = []
+        y_tagsnew = []
+        y_tagsold = []
+        for key, val in self.datadata.items():
+            x_label.append(key)
+            y_geomnew.append(len(val['new']['diffgeom']))
+            y_geomold.append(len(val['old']['diffgeom']))
+            y_tagsnew.append(len(val['new']['difftags']))
+            y_tagsold.append(len(val['old']['difftags']))
+        fig, ax = plt.subplots()
+        plot_geomold = ax.bar(xs, y_geomold, width, color='red')
+        plot_geomnew = ax.bar(xs, y_geomnew, width, color='green')
+        plot_tagsold = ax.bar(xs + width, y_tagsold, width, color='yellow')
+        plot_tagsnew = ax.bar(xs + width, y_tagsnew, width, color='gray')
+        ax.xticks(xs, x_label)
+        if output:
+            plt.savefig(output)
+        else:
+            plt.show()
             
-        
+    def plot_mean_diff_lines(self, output=None):
+        """Plot mean value of number of changes for each element"""
+        xs = range(len(self.datadata.keys()))
+        x_label = []
+        y_geomnew = []
+        y_geomold = []
+        y_tagsnew = []
+        y_tagsold = []
+        for key, val in self.datadata.items():
+            x_label.append(key)
+            values = np.array(list(v['new']['diffgeomcount']))
+            y_geomnew.append(values.mean())
+            values = np.array(list(v['new']['difftagscount']))
+            y_tagsnew.append(values.mean())
+            values = np.array(list(v['old']['diffgeomcount']))
+            y_geomold.append(values.mean())
+            values = np.array(list(v['old']['difftagscount']))
+            y_tagsold.append(values.mean())
+        fig, ax = plt.subplots()
+        linemin, = ax.plot(x, minn, '--', linewidth=2,
+                           label='Min values')
+        linemax, = ax.plot(x, maxx, '--', linewidth=2,
+                           label='Max values')
+        linemean, = ax.plot(x, mean, '--', linewidth=2,
+                            label='mean values')
+        linesum, = ax.plot(x, summ, '--', linewidth=2,
+                           label='Sum values')
+        if output:
+            plt.savefig(output)
+        else:
+            plt.show()
+
 
 class OsmTileLogEventAnalyze():
     """Class to analyze OpenStreetMap tiles log files"""
