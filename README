@@ -1,0 +1,62 @@
+OSManalytic
+===========
+
+This code is useful to run analysis related to a specific event on OpenStreetMap data.  
+
+REQUIREMENTS
+------------
+
+Software
+^^^^^^^^
+* osmium http://osmcode.org/osmium-tool/
+* PostgreSQL
+* PostGIS
+* osm2pgsql http://wiki.openstreetmap.org/wiki/Osm2pgsql
+* Python > 3.0
+
+Hardware
+^^^^^^^^
+* > 100 GB Hard disk (Depending on the interessed area)
+* > 4 GB RAM (Depending on the interessed area)
+
+DATA PREPARATION
+----------------
+
+1) Download the full planet from http://planet.openstreetmap.org/pbf/full-history/history-latest.osm.pbf
+2) Cut with osmium the the full file using one of the following command ::
+
+	# using bounding box
+	osmium extract --with-history --bbox LEFT,BOTTOM,RIGHT,TOP history-latest.osm.pbf --output YOURAREA.osh
+	# using geojson or poly file
+	osmium extract --with-history --polygon history-latest.osm.pbf --output YOURAREA.osh
+
+3) If you want you can filter the previous output according one or two timestamp with the following command,
+   otherwise pass to the next step ::
+   
+    # cut for the entire 2016
+    osmium time-filter history-latest.osm.pbf MINTIME MAXTIME --output YOURAREA_2016.osh
+
+4) Create a new PostgreSQL/PostGIS database
+
+	# create database
+	createdb osmananalytic
+	psql -c "CREATE EXTENSION postgis; CREATE EXTENSION hstore" osmananalytic
+	
+   
+5) Import the last file using osm2pgsql, use the style file provided with this code ::
+
+	# -j to store all the tags in hstore column
+	# -x to add extra attribute into tables
+	# -s use the style
+	# -C set the RAM to use for cache (bigger value is faster) 
+	osm2pgsql -j -x -s osmanalytic.style -C 2000 YOUR.osh
+
+HOT TO USE OSMANALYTIC
+----------------------
+
+The script
+^^^^^^^^^^
+
+The library
+^^^^^^^^^^^
+
