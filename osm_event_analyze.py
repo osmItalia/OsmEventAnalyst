@@ -103,12 +103,27 @@ def set_area(area):
 
     :param str area: the full path to a geojson file
     """
-    f = open(area)
+    if os.path.exists(area):
+        try:
+            f = open(area)
+            myjson = geojson.load(f)
+        except:
+            print("The input file does not seem a geojson")
+    else:
+        print("The path {pa} does not exist".format(pa=area))
     try:
-        myjson = geojson.load(f)
         return myjson['geometry']
-    except geojson.JSONDecodeError:
-        print("The input file does not seem a geojson")
+    except:
+        try:
+            feats = myjson['features']
+            if len(feats) == 1:
+                return myjson['features'][0]['geometry']
+            else:
+                print("The geoJSON file is not valid, only geoJSON with one"
+                      "feature are accepted")
+        except:
+            print("The input file does not seem a geojson")
+            return None
 
 
 def get_extent(area):
