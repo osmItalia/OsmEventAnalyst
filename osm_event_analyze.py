@@ -715,7 +715,6 @@ class OsmTileLogEventAnalyze():
 
     def _download_file(self, file):
         """Download a singolar XZ file"""
-
         orig_size = None
         fileurl = urljoin(self.url, file)
         filDir = os.path.join(self.workdir, file)
@@ -901,7 +900,7 @@ class OsmTileLogEventAnalyze():
                 self.final_tiles['max'][k] = valnump.max()
             except ValueError:
                 pass
-        return outdates, outtiles
+        return True
 
     def output(self, datespath=None, tilespath=None):
         """Write final result to json file"""
