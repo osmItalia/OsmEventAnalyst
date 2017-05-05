@@ -468,7 +468,8 @@ class OsmDataEventAnalyze():
 
 class OsmDataEventPlot():
     """Class to get plots from OsmDataEventAnalize outputs"""
-    def __init__(self, userdata=None, datadata=None):
+    def __init__(self, userdata=None, datadata=None, tilesdates=None,
+                 tilestiles=None):
         self.data_aggr = {}
         if isinstance(userdata, dict):
             self.userdata = userdata
@@ -476,6 +477,10 @@ class OsmDataEventPlot():
             self.datadata = datadata
             if self.datadata:
                 self._aggregate_data()
+        if isinstance(tilesdates, dict):
+            self.tilesdates = tilesdate
+        if isinstance(tilestiles, dict):
+            self.tilestiles = tilestiles
 
     def _aggregate_data(self):
         """Function to aggregate data"""
@@ -524,6 +529,20 @@ class OsmDataEventPlot():
         self.datadata = json.loads(f.read())
         f.close()
         self._aggregate_data()
+        return True
+
+    def set_tilesdates(self, path):
+        """Load tiles dates data from a json file"""
+        f = open(path)
+        self.tilesdates = json.loads(f.read())
+        f.close()
+        return True
+
+    def set_tilestiles(self, path):
+        """Load tiles dates data from a json file"""
+        f = open(path)
+        self.tilestiles = json.loads(f.read())
+        f.close()
         return True
 
     def plot_oldnew_user(self, output=None):
@@ -691,6 +710,20 @@ class OsmDataEventPlot():
                             label='mean values')
         linesum, = ax.plot(x, summ, '--', linewidth=2,
                            label='Sum values')
+        if output:
+            plt.savefig(output)
+        else:
+            plt.show()
+
+    def plot_tiles_avg_sum_dates(self, output=None):
+        """"""
+        xs = range(len(self.tilesdates['sum']))
+        x_labels = list(self.tilesdates['sum'].keys())
+        y_sum = list(self.tilesdates['sum'].values())
+        y_avg = list(self.tilesdates['avg'].values())
+        fig, axis = plt.subplots(figsize=(8, 3), ncols=2)
+        line_sum = axis[0].plot(xs, y_sum, linewidth=2)
+        line_avg = axis[1].plot(xs, y_avg, linewidth=2)
         if output:
             plt.savefig(output)
         else:
