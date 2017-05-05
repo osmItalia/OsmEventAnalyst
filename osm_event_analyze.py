@@ -706,9 +706,8 @@ class OsmTileLogEventAnalyze():
         self.timeout = timeout
         self.tiles = []
         self.files = []
-        self.outtiles = {}
-        self.outdates = {}
-        self.outdates[self.eventdate.strftime(LOGS_FORMAT)] = {}
+        self.out = {'tiles': {}, 'dates': {}}
+        self.out['dates'][self.eventdate.strftime(LOGS_FORMAT)] = {}
         self.multi = False
         self.final_dates = {'sum': {}, 'avg': {}, 'min': {}, 'max': {}}
         self.final_tiles = {'sum': {}, 'avg': {}, 'min': {}, 'max': {}}
@@ -775,7 +774,7 @@ class OsmTileLogEventAnalyze():
         for tile in mercantile.tiles(*self.extent, range(minz, maxz + 1)):
             tilestr = "{z}/{x}/{y}".format(z=tile.z, x=tile.x, y=tile.y)
             self.tiles.append(tilestr)
-            self.outtiles[tilestr] = {}
+            self.out['tiles'][tilestr] = {}
 
     def check_existing_files(self, year=None, month=None):
         """Check files already downloaded"""
@@ -787,8 +786,8 @@ class OsmTileLogEventAnalyze():
             if f not in self.files:
                 self.files.append(f)
                 data = f.replace('tiles-', '').replace('.txt', '')
-                if data not in self.outdates.keys():
-                    self.outdates[data] = {}
+                if data not in self.out['dates'].keys():
+                    self.out['dates'][data] = {}
         return True
 
     def _analyze_file(self, filename, output=None):
@@ -805,18 +804,17 @@ class OsmTileLogEventAnalyze():
             val = linesplit[1]
             if tile in self.tiles:
                 if not output:
-                    if self.multi:
-                        LOCK.acquire()
-                    self.outtiles[tile][date] = int(val)
-                    self.outdates[date][tile] = int(val)
-                    if self.multi:
-                        LOCK.release()
+                    self.out['tiles'][tile][date] = int(val)
+                    self.out['dates'][date][tile] = int(val)
+                elif isinstance(output, dict):
+                    output['tiles'][tile][date] = int(val)
+                    output['dates'][date][tile] = int(val)
         end = time.time()
-        print(filename, end-start)
+        print(filename, end-start, output)
 
     def _download_tileslog_day(self, file, remove=True):
         """Download and extract a singolar tiles log file"""
-        self.outdates[file] = {}
+        self.out['dates'][file] = {}
         myfile = LOGS_FILE.format(day=file)
         self._download_file(myfile)
         self._extract_file(myfile, remove)
@@ -866,11 +864,16 @@ class OsmTileLogEventAnalyze():
 
     def _analyze_files(self, cpu=None):
         """Execute analysis using multiprocess"""
+        import copy
+        mgr = mltp.Manager()
         cpu = cpu if cpu is not None else mltp.cpu_count()
+        output = mgr.dict(copy.deepcopy(self.out))
         pool = mltp.Pool(processes=cpu)
-        pool.map(self._analyze_file, self.files)
+        for file in self.files:
+            pool.apply_async(self._analyze_file, [file, output])
         pool.close()
         pool.join()
+        return output
 
     def analyze(self, multi=True, cpu=None):
         """Analyze all the downloaded log files"""
@@ -878,11 +881,11 @@ class OsmTileLogEventAnalyze():
             print("No file loaded")
         if multi:
             self.multi = True
-            self._analyze_files(cpu)
+            self.out = self._analyze_files(cpu)
         else:
             for file in self.files:
                 self._analyze_file(file)
-        for k, v in self.outdates.items():
+        for k, v in self.out['dates'].items():
             try:
                 valnump = np.array(list(v.values()))
                 self.final_dates['sum'][k] = valnump.sum()
@@ -891,7 +894,7 @@ class OsmTileLogEventAnalyze():
                 self.final_dates['max'][k] = valnump.max()
             except ValueError:
                 pass
-        for k, v in self.outtiles.items():
+        for k, v in self.out['tiles'].items():
             try:
                 valnump = np.array(list(v.values()))
                 self.final_tiles['sum'][k] = valnump.sum()
