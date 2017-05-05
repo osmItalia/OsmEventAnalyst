@@ -173,14 +173,18 @@ def write_output(path, data):
     else:
         with open(path, 'w') as f:
             f.write(json.dumps(data, sort_keys=True,
-                               indent=4, cls=JSONDateTimeEncoder))
+                               indent=4, cls=JsonOsmEncoder))
         f.close()
 
-class JSONDateTimeEncoder(json.JSONEncoder):
+class JsonOsmEncoder(json.JSONEncoder):
     """Class to convert correctly datetime object to json"""
     def default(self, obj):
         if isinstance(obj, (date, datetime)):
             return obj.isoformat()
+        elif isinstance(obj, (np.int64, np.int32)):
+            return int(obj)
+        elif isinstance(obj, (np.float64, np.float32)):
+            return float(obj)
         else:
             return json.JSONEncoder.default(self, obj)
 
