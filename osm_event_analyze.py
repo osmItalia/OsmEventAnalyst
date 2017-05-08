@@ -564,6 +564,30 @@ class OsmDataEventAnalyze():
             hour += 1
         return True
 
+    def info_user_from_list(self, path, outpath=None, sep=','):
+        sumdif = 0
+        for v in self.finaldata.values(): sumdif += v['count']
+        f = open(path)
+        users = f.readlines()
+        f.close()
+        if outpath:
+            f = open(outpath, 'w')
+        else:
+            f = open(path, 'w')
+        f.write("{}\n".format(sep.join(['user', 'class', 'count', 'percent'])))
+        for user in users:
+            user = user.strip()
+            out_user = [user]
+            for k, v in self.finalusers.items():
+                print(user, user in v.keys(), user in v.keys())
+                if user in v.keys():
+                    out_user.append(k)
+                    out_user.append(str(v[user]['count']))
+                    out_user.append(str(v[user]['count'] * 100 / sumdif))
+            f.write("{}\n".format(sep.join(out_user)))
+        f.close()
+        return True
+
     def set_data(self, userpath=None, datapath=None, changespath=None):
         """Read data from json file"""
         if userpath:
