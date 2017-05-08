@@ -513,12 +513,14 @@ class OsmDataEventAnalyze():
             self.finalchanges['hourlyeditscount'][day][d[0]] = d[1]
         return True
 
-    def output(self, userpath=None, datapath=None):
+    def output(self, userpath=None, datapath=None, changespath=None):
         """Write final result to json file"""
         if userpath:
             write_output(userpath, self.finalusers)
         if datapath:
             write_output(datapath, self.finaldata)
+        if changespath:
+            write_output(changespath, self.finalchanges)
         return True
 
 
