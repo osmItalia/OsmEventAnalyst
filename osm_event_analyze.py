@@ -215,7 +215,8 @@ class OsmDataEventAnalyze():
             self.area = set_area(area)
         self.finalusers = {}
         self.finaldata = {}
-        self.finalchanges = {'hourlyeditscount': {}, 'dailyusercount': {}}
+        self.finalchanges = {'hourlyeditscount': {}, 'dailyusercount': {},
+                             'dailyeditsclasses': {}}
 
     def _execute(self, query):
         """Execute a query and return the result
@@ -496,6 +497,38 @@ class OsmDataEventAnalyze():
                 else:
                     self.finalchanges['dailyusercount'][fday.strftime("%Y-%m-%d")][d[0].strftime("%Y-%m-%d")] = d[1]
                 day = day + delta
+        return True
+
+    def get_count_edits_classes_per_day(self, fday=None, lday=None):
+        """Return the number of edits for user class modifing the area
+        for each table"""
+        fday = fday if fday is not None else self.eventdate.date()
+        daystr = fday.strftime("%Y-%m-%d")
+        self.finalchanges['dailyeditsclasses'][daystr] = {}
+        for k, v in self.finalusers.items():
+            if k == 'old_user_mapping_only_before_event':
+                continue
+            query = "select mydate, count(osm_id) from ("
+            tqueries = []
+            self.finalchanges['dailyeditsclasses'][daystr][k] = {}
+            users = "'{us}'".format(us="', '".join(list(v.keys())))
+            for tab in TABLES:
+                tqueries.append("select DATE(tags -> 'osm_timestamp') as " \
+                                "mydate, osm_id from {ta} where tags -> " \
+                                "'osm_user' in ({uss})".format(ta=tab,
+                                                               uss=users))
+            query += ' UNION '.join(tqueries)
+            query += ") as query group by mydate order by mydate;"
+            data = self._execute(query)
+            delta = timedelta(1)
+            day = fday
+            for d in data:
+                while day <= d[0]:
+                    if day < d[0]:
+                        self.finalchanges['dailyeditsclasses'][daystr][k][day.strftime("%Y-%m-%d")] = 0
+                    else:
+                        self.finalchanges['dailyeditsclasses'][daystr][k][d[0].strftime("%Y-%m-%d")] = d[1]
+                    day = day + delta
         return True
 
     def get_count_edits_per_hour(self, day=None):
@@ -880,6 +913,26 @@ class OsmDataEventPlot():
         else:
             plt.show()
 
+    def plot_daily_edits_classes(self, output=None):
+        """Plot data about number of edits per user class"""
+        if len(self.changes['dailyeditsclasses']) == 0:
+            print("No data loaded")
+            return False
+        elif len(self.changes['dailyeditsclasses']) == 1:
+            fig, axis = plt.subplots()
+            for day, classes in self.changes['dailyeditsclasses'].items():
+                for clas, values in classes.items():
+                    x_values = range(len(values.keys()))
+                    axis.plot(x_values, list(values.values()), '--',
+                              linewidth=2, label=clas)
+                axis.set_xticks(range(0, len(values.keys()), 4))
+                axis.set_xticklabels(reduce_labels(list(values.keys()), 4),
+                                     rotation='vertical')
+                axis.legend(loc='right')
+        if output:
+            plt.savefig(output)
+        else:
+            plt.show()
 
 class OsmTileLogEventAnalyze():
     """Class to analyze OpenStreetMap tiles log files"""
