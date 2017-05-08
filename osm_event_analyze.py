@@ -546,7 +546,7 @@ class OsmDataEventAnalyze():
                             "timestamp + '1 day'::interval) group by EXTRACT" \
                             "(hour from (tags -> 'osm_timestamp')::timestamp" \
                             ")".format(ta=tab, da=day))
-        query += ' UNION '.join(tqueries)
+        query += ' UNION ALL '.join(tqueries)
         query += ") as query group by hour order by hour;"
         data = self._execute(query)
         hour = 0
