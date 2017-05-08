@@ -1058,6 +1058,11 @@ class OsmTileLogEventAnalyze():
             tilestr = "{z}/{x}/{y}".format(z=tile.z, x=tile.x, y=tile.y)
             self.tiles.append(tilestr)
             self.out['tiles'][tilestr] = {}
+        if len(self.tiles) == 0:
+            print("No file found")
+        else:
+            print("{nu} files found".format(nu=len(self.tiles)))
+        return True
 
     def check_existing_files(self, year=None, month=None):
         """Check files already downloaded"""
@@ -1071,6 +1076,10 @@ class OsmTileLogEventAnalyze():
                 data = f.replace('tiles-', '').replace('.txt', '')
                 if data not in self.out['dates'].keys():
                     self.out['dates'][data] = {}
+        if len(self.files) == 0:
+            print("No file found")
+        else:
+            print("{nu} files found".format(nu=len(self.files)))
         return True
 
     def _analyze_file(self, filename, output=None):
