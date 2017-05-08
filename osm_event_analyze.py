@@ -1167,10 +1167,11 @@ class OsmTileLogEventAnalyze():
         pool.join()
         return output
 
-    def analyze(self, multi=True, cpu=None):
+    def analyze(self, multi=False, cpu=None):
         """Analyze all the downloaded log files"""
         if len(self.files) == 0:
             print("No file loaded")
+        # MULTI IS NOT WORKING BECAUSE DATA ARE NOT SAVED INTO DICTIONARY
         if multi:
             self.multi = True
             self.out = self._analyze_files(cpu)
