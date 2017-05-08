@@ -469,9 +469,9 @@ class OsmDataEventAnalyze():
                 self.finaldata[table][status] = out
         return out
 
-    def get_count_per_day(self):
+    def get_count_user_per_day(self):
         """Return the number of user modifing the area for each table"""
-        self.finalchanges['dailycount'] = {}
+        self.finalchanges['dailyusercount'] = {}
         query = "select mydate, count(myuser) from ("
         tqueries = []
         for tab in TABLES:
