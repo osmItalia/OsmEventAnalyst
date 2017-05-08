@@ -215,7 +215,7 @@ class OsmDataEventAnalyze():
             self.area = set_area(area)
         self.finalusers = {}
         self.finaldata = {}
-        self.finalchanges = {}
+        self.finalchanges = {'hourlyeditscount': {}, 'dailyusercount': {}}
 
     def _execute(self, query):
         """Execute a query and return the result
@@ -469,21 +469,48 @@ class OsmDataEventAnalyze():
                 self.finaldata[table][status] = out
         return out
 
-    def get_count_user_per_day(self):
+    def get_count_user_per_day(self, fday=None, lday=None):
         """Return the number of user modifing the area for each table"""
-        self.finalchanges['dailyusercount'] = {}
+        fday = fday if fday is not None else self.eventdate
+        self.finalchanges['dailyusercount'][fday.strftime("%Y-%m-%d")] = {}
         query = "select mydate, count(myuser) from ("
         tqueries = []
         for tab in TABLES:
-            tqueries.append("select DISTINCT DATE(tags -> 'osm_timestamp') " \
-                            "as mydate, tags -> 'osm_user' as myuser from " \
-                            "{ta} where tags -> 'osm_timestamp' >= " \
-                            "'{da}'".format(ta=tab, da=self.eventdate))
+            tquery = "SELECT DISTINCT DATE(tags -> 'osm_timestamp') AS " \
+                     "mydate, tags -> 'osm_user' AS myuser FROM {ta} " \
+                     "where tags -> 'osm_timestamp' >= '{da}'".format(ta=tab,
+                                                                      da=fday)
+            if lday:
+                tquery += " AND tags -> 'osm_timestamp' < " \
+                          "'{da}'".format(da=lday)
+            tqueries.append(tquery)
         query += ' UNION '.join(tqueries)
         query += ") as query group by mydate order by mydate;"
         data = self._execute(query)
         for d in data:
-            self.finalchanges['dailycount'][d[0]] = d[1]
+            self.finalchanges['dailyusercount'][fday.strftime("%Y-%m-%d")][d[0]] = d[1]
+        return True
+
+    def get_count_edits_per_hour(self, day=None):
+        """Return the number of changes in the area per hours"""
+        day = day if day is not None else self.eventdate.strftime("%Y-%m-%d")
+        self.finalchanges['hourlyeditscount'][day] = {}
+        query = "select hour, sum(osmid) from ("
+        tqueries = []
+        for tab in TABLES:
+            tqueries.append("select DISTINCT EXTRACT(hour from (tags -> " \
+                            "'osm_timestamp')::timestamp) as hour, count(" \
+                            "osm_id) as osmid from {ta} where (tags -> " \
+                            "'osm_timestamp')::timestamp >= '{da}' and (tags" \
+                            " -> 'osm_timestamp')::timestamp < ('{da}'::" \
+                            "timestamp + '1 day'::interval) group by EXTRACT" \
+                            "(hour from (tags -> 'osm_timestamp')::timestamp" \
+                            ")".format(ta=tab, da=day))
+        query += ' UNION '.join(tqueries)
+        query += ") as query group by hour order by hour;"
+        data = self._execute(query)
+        for d in data:
+            self.finalchanges['hourlyeditscount'][day][d[0]] = d[1]
         return True
 
     def output(self, userpath=None, datapath=None):
