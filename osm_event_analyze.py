@@ -492,9 +492,9 @@ class OsmDataEventAnalyze():
         for d in data:
             while day <= d[0]:
                 if day < d[0]:
-                    self.finalchanges['dailyusercount'][fday.strftime("%Y-%m-%d")][day] = 0
+                    self.finalchanges['dailyusercount'][fday.strftime("%Y-%m-%d")][day.strftime("%Y-%m-%d")] = 0
                 else:
-                    self.finalchanges['dailyusercount'][fday.strftime("%Y-%m-%d")][d[0]] = d[1]
+                    self.finalchanges['dailyusercount'][fday.strftime("%Y-%m-%d")][d[0].strftime("%Y-%m-%d")] = d[1]
                 day = day + delta
         return True
 
@@ -524,6 +524,9 @@ class OsmDataEventAnalyze():
                 else:
                     self.finalchanges['hourlyeditscount'][day][int(d[0])] = int(d[1])
                 hour += 1
+        while hour <= 23:
+            self.finalchanges['hourlyeditscount'][day][hour] = 0
+            hour += 1
         return True
 
     def output(self, userpath=None, datapath=None, changespath=None):
@@ -540,7 +543,7 @@ class OsmDataEventAnalyze():
 class OsmDataEventPlot():
     """Class to get plots from OsmDataEventAnalize outputs"""
     def __init__(self, userdata=None, datadata=None, tilesdates=None,
-                 tilestiles=None):
+                 tilestiles=None, changes=None):
         self.data_aggr = {}
         if isinstance(userdata, dict):
             self.userdata = userdata
@@ -552,6 +555,8 @@ class OsmDataEventPlot():
             self.tilesdates = tilesdate
         if isinstance(tilestiles, dict):
             self.tilestiles = tilestiles
+        if isinstance(changes, dict):
+            self.changes = changes
 
     def _aggregate_data(self):
         """Function to aggregate data"""
@@ -613,6 +618,13 @@ class OsmDataEventPlot():
         """Load tiles dates data from a json file"""
         f = open(path)
         self.tilestiles = json.loads(f.read())
+        f.close()
+        return True
+
+    def set_changes(self, path):
+        """Load changes data from a json file"""
+        f = open(path)
+        self.changes = json.loads(f.read(), object_pairs_hook=OrderedDict)
         f.close()
         return True
 
@@ -802,6 +814,67 @@ class OsmDataEventPlot():
         axis[1].set_title("The mean of visited tile for day")
         axis[1].set_xticklabels(x_labels, rotation='vertical')
         axis[1].set_xticks(xs)
+        if output:
+            plt.savefig(output)
+        else:
+            plt.show()
+
+    def plot_hourly_edit_count(self, output=None):
+        """Plot daily data about number of edit per hour"""
+        xs = range(24)
+        fig, axis = plt.subplots(figsize=(8, 3),
+                                 ncols=len(self.changes['hourlyeditscount']))
+        plot = 0
+        maxy = 0
+        for v in self.changes['hourlyeditscount'].values():
+            mxy = max(list(v.values()))
+            if mxy > maxy:
+                maxy = mxy
+        for k, v in self.changes['hourlyeditscount'].items():
+            axis[plot].plot(xs, list(v.values()), linewidth=2)
+            axis[plot].set_title(k)
+            axis[plot].set_xticks(xs)
+            axis[plot].set_yticks(range(0, maxy, int(maxy / 10)))
+            axis[plot].set_xticklabels(list(v.keys()))
+            plot += 1
+        if output:
+            plt.savefig(output)
+        else:
+            plt.show()
+
+    def plot_daily_user_count(self, output=None):
+        """Plot data about number of user per day"""
+        maxy = None
+        if len(self.changes['dailyusercount']) == 0:
+            print("No data loaded")
+            return False
+        elif len(self.changes['dailyusercount']) == 1:
+            fig, axis = plt.subplots()
+            for k, v in self.changes['dailyusercount'].items():
+                xs = range(len(v.keys()))
+                axis.plot(xs, list(v.values()), linewidth=2)
+                axis.set_title(k)
+                axis.set_xticks(range(0, len(v.keys()), 4))
+                axis.set_xticklabels(reduce_labels(list(v.keys()), 4),
+                                     rotation='vertical')
+        elif len(self.changes['dailyusercount']) > 1:
+            fig, axis = plt.subplots(figsize=(8, 3),
+                                     ncols=len(self.changes['dailyusercount']))
+            maxy = 0
+            for k, v in self.changes['dailyusercount'].item():
+                mxy = max(list(v.values()))
+                if mxy > maxy:
+                    maxy = mxy
+            plot = 0
+            for k, v in self.changes['dailyusercount'].items():
+                xs = range(len(v.keys()))
+                axis[plot].plot(xs, list(v.values()), linewidth=2)
+                axis[plot].set_title(k)
+                axis[plot].set_xticks(range(0, len(v.keys()), 4))
+                axis[plot].set_yticks(range(0, maxy, int(maxy / 10)))
+                axis[plot].set_xticklabels(reduce_labels(list(v.keys()), 4),
+                                           rotation='vertical')
+                plot += 1
         if output:
             plt.savefig(output)
         else:
