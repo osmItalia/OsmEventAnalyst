@@ -471,7 +471,7 @@ class OsmDataEventAnalyze():
 
     def get_count_user_per_day(self, fday=None, lday=None):
         """Return the number of user modifing the area for each table"""
-        fday = fday if fday is not None else self.eventdate
+        fday = fday if fday is not None else self.eventdate.date()
         self.finalchanges['dailyusercount'][fday.strftime("%Y-%m-%d")] = {}
         query = "select mydate, count(myuser) from ("
         tqueries = []
@@ -487,8 +487,15 @@ class OsmDataEventAnalyze():
         query += ' UNION '.join(tqueries)
         query += ") as query group by mydate order by mydate;"
         data = self._execute(query)
+        delta = timedelta(1)
+        day = fday
         for d in data:
-            self.finalchanges['dailyusercount'][fday.strftime("%Y-%m-%d")][d[0]] = d[1]
+            while day <= d[0]:
+                if day < d[0]:
+                    self.finalchanges['dailyusercount'][fday.strftime("%Y-%m-%d")][day] = 0
+                else:
+                    self.finalchanges['dailyusercount'][fday.strftime("%Y-%m-%d")][d[0]] = d[1]
+                day = day + delta
         return True
 
     def get_count_edits_per_hour(self, day=None):
@@ -509,8 +516,14 @@ class OsmDataEventAnalyze():
         query += ' UNION '.join(tqueries)
         query += ") as query group by hour order by hour;"
         data = self._execute(query)
+        hour = 0
         for d in data:
-            self.finalchanges['hourlyeditscount'][day][d[0]] = d[1]
+            while hour <= int(d[0]):
+                if hour < int(d[0]):
+                    self.finalchanges['hourlyeditscount'][day][hour] = 0
+                else:
+                    self.finalchanges['hourlyeditscount'][day][int(d[0])] = int(d[1])
+                hour += 1
         return True
 
     def output(self, userpath=None, datapath=None, changespath=None):
