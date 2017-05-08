@@ -203,9 +203,11 @@ class JsonOsmEncoder(json.JSONEncoder):
 class OsmDataEventAnalyze():
     """Class to analyze OpenStreetMap history data"""
 
-    def __init__(self, dbconn, eventdate, area=None):
+    def __init__(self, eventdate, dbconn=None, area=None):
         # start connection with postgresql database
-        self.conn = psycopg2.connect(dbconn)
+        self.conn = None
+        if dbconn:
+            self.conn = psycopg2.connect(dbconn)
         # parse datetime string
         self.eventdate = datetime.strptime(eventdate, TIME_FORMAT)
         self.users = {}
@@ -560,6 +562,22 @@ class OsmDataEventAnalyze():
         while hour <= 23:
             self.finalchanges['hourlyeditscount'][day][hour] = 0
             hour += 1
+        return True
+
+    def set_data(self, userpath=None, datapath=None, changespath=None):
+        """Read data from json file"""
+        if userpath:
+            f = open(userpath)
+            self.finalusers = json.loads(f.read())
+            f.close()
+        if datapath:
+            f = open(datapath)
+            self.finaldata = json.loads(f.read())
+            f.close()
+        if changespath:
+            f = open(changespath)
+            self.finalchanges = json.loads(f.read())
+            f.close()
         return True
 
     def output(self, userpath=None, datapath=None, changespath=None):
