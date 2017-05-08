@@ -215,6 +215,7 @@ class OsmDataEventAnalyze():
             self.area = set_area(area)
         self.finalusers = {}
         self.finaldata = {}
+        self.finalchanges = {}
 
     def _execute(self, query):
         """Execute a query and return the result
@@ -467,6 +468,23 @@ class OsmDataEventAnalyze():
             if table and status:
                 self.finaldata[table][status] = out
         return out
+
+    def get_count_per_day(self):
+        """Return the number of user modifing the area for each table"""
+        self.finalchanges['dailycount'] = {}
+        query = "select mydate, count(myuser) from ("
+        tqueries = []
+        for tab in TABLES:
+            tqueries.append("select DISTINCT DATE(tags -> 'osm_timestamp') " \
+                            "as mydate, tags -> 'osm_user' as myuser from " \
+                            "{ta} where tags -> 'osm_timestamp' >= " \
+                            "'{da}'".format(ta=tab, da=self.eventdate))
+        query += ' UNION '.join(tqueries)
+        query += ") as query group by mydate order by mydate;"
+        data = self._execute(query)
+        for d in data:
+            self.finalchanges['dailycount'][d[0]] = d[1]
+        return True
 
     def output(self, userpath=None, datapath=None):
         """Write final result to json file"""
