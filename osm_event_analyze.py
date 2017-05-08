@@ -29,7 +29,7 @@ import json
 import multiprocessing as mltp
 from datetime import datetime
 from datetime import date
-
+from collections import OrderedDict
 from datetime import timedelta
 import matplotlib.pyplot as plt
 try:
@@ -175,6 +175,17 @@ def write_output(path, data):
             f.write(json.dumps(data, sort_keys=True,
                                indent=4, cls=JsonOsmEncoder))
         f.close()
+
+def reduce_labels(labels, step):
+    """Function to manage correctly the labels"""
+    out = []
+    x = 0
+    for lab in labels:
+        if x == 0 or x % step == 0:
+            out.append(lab)
+        x += 1
+    return out
+
 
 class JsonOsmEncoder(json.JSONEncoder):
     """Class to convert correctly datetime object to json"""
@@ -526,7 +537,7 @@ class OsmDataEventPlot():
     def set_datadata(self, path):
         """Load data data from a json file"""
         f = open(path)
-        self.datadata = json.loads(f.read())
+        self.datadata = json.loads(f.read(), object_pairs_hook=OrderedDict)
         f.close()
         self._aggregate_data()
         return True
@@ -534,7 +545,7 @@ class OsmDataEventPlot():
     def set_tilesdates(self, path):
         """Load tiles dates data from a json file"""
         f = open(path)
-        self.tilesdates = json.loads(f.read())
+        self.tilesdates = json.loads(f.read(), object_pairs_hook=OrderedDict)
         f.close()
         return True
 
@@ -716,18 +727,21 @@ class OsmDataEventPlot():
             plt.show()
 
     def plot_tiles_avg_sum_dates(self, output=None):
-        """"""
-        xs = range(len(self.tilesdates['sum']))
-        x_labels = list(self.tilesdates['sum'].keys())
+        """Plot lines related to sum and mean of visited tiles"""
+        x_values = range(len(self.tilesdates['sum']))
+        xs = range(0, len(self.tilesdates['sum']), 3)
+        x_labels = reduce_labels(list(self.tilesdates['sum'].keys()), 3)
         y_sum = list(self.tilesdates['sum'].values())
         y_avg = list(self.tilesdates['avg'].values())
         fig, axis = plt.subplots(figsize=(8, 3), ncols=2)
-        line_sum = axis[0].plot(xs, y_sum, linewidth=2)
+        line_sum = axis[0].plot(x_values, y_sum, linewidth=2)
         axis[0].set_title("The sum of visited tile for day")
-        axis[0].set_xticks(xs, x_labels)
-        line_avg = axis[1].plot(xs, y_avg, linewidth=2)
+        axis[0].set_xticks(xs)
+        axis[0].set_xticklabels(x_labels, rotation='vertical')
+        line_avg = axis[1].plot(x_values, y_avg, linewidth=2)
         axis[1].set_title("The mean of visited tile for day")
-        axis[1].set_xticks(xs, x_labels)
+        axis[1].set_xticklabels(x_labels, rotation='vertical')
+        axis[1].set_xticks(xs)
         if output:
             plt.savefig(output)
         else:
@@ -877,7 +891,7 @@ class OsmTileLogEventAnalyze():
             self._download_tileslog_day(after.strftime(LOGS_FORMAT), remove)
 
     def download_tileslog_month(self, month, year=None, remove=True):
-        """Download the tiles log files for a month"""
+        """Download the tiOsmEventAnalyst/les log files for a month"""
         year = year if year is not None else self.eventdate.year
         day = datetime(year, month, 1)
         endday = datetime(year, int(month) + 1, 1)
