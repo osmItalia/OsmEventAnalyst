@@ -718,7 +718,8 @@ class OsmDataEventPlot():
         else:
             plt.show()
 
-    def plot_oldnew_user_count_boxplot(self, output=None, outliers=None):
+    def plot_oldnew_user_count_boxplot(self, output=None, outliers=None,
+                                       angle=30):
         """Plot number of edits for the user distribution in a boxplot"""
         labels = []
         values = []
@@ -729,8 +730,9 @@ class OsmDataEventPlot():
             for z in v.values():
                 values[i].append(z['count'])
             i += 1
-        plt.figure()
-        plt.boxplot(values, 0, outliers, labels=labels)
+        fig1, ax1 = plt.subplots()
+        ax1.boxplot(values, 0, outliers)
+        ax1.set_xticklabels(labels, rotation=angle)
         if output:
             plt.savefig(output)
         else:
