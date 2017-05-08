@@ -723,7 +723,11 @@ class OsmDataEventPlot():
         y_avg = list(self.tilesdates['avg'].values())
         fig, axis = plt.subplots(figsize=(8, 3), ncols=2)
         line_sum = axis[0].plot(xs, y_sum, linewidth=2)
+        axis[0].set_title("The sum of visited tile for day")
+        axis[0].set_xticks(xs, x_labels)
         line_avg = axis[1].plot(xs, y_avg, linewidth=2)
+        axis[1].set_title("The mean of visited tile for day")
+        axis[1].set_xticks(xs, x_labels)
         if output:
             plt.savefig(output)
         else:
