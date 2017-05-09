@@ -29,8 +29,8 @@ import json
 import multiprocessing as mltp
 from datetime import datetime
 from datetime import date
-from collections import OrderedDict
 from datetime import timedelta
+from collections import OrderedDict
 import matplotlib.pyplot as plt
 try:
     import psycopg2
@@ -113,7 +113,7 @@ def set_area(area):
         print("The path {pa} does not exist".format(pa=area))
     try:
         return myjson['geometry']
-    except:
+    except KeyError:
         try:
             feats = myjson['features']
             if len(feats) == 1:
@@ -501,7 +501,7 @@ class OsmDataEventAnalyze():
                 day = day + delta
         return True
 
-    def get_count_edits_classes_per_day(self, fday=None, lday=None):
+    def get_count_edits_classes_per_day(self, fday=None):
         """Return the number of edits for user class modifing the area
         for each table"""
         fday = fday if fday is not None else self.eventdate.date()
@@ -565,8 +565,11 @@ class OsmDataEventAnalyze():
         return True
 
     def info_user_from_list(self, path, outpath=None, sep=','):
+        """Return info from user to a list of user in a file, an user for
+        each line"""
         sumdif = 0
-        for v in self.finaldata.values(): sumdif += v['count']
+        for v in self.finaldata.values():
+            sumdif += v['count']
         f = open(path)
         users = f.readlines()
         f.close()
@@ -632,19 +635,19 @@ class OsmDataEventPlot():
         """Function to aggregate data"""
         for key, val in self.datadata.items():
             self.data_aggr[key] = {'new': {'diffgeom': list(),
-                                   'diffgeomcount': list(),
-                                   'difftags': list(),
-                                   'difftagscount': list(),
-                                   'versions': list(),
+                                           'diffgeomcount': list(),
+                                           'difftags': list(),
+                                           'difftagscount': list(),
+                                           'versions': list(),
                                    },
-                           'old': {'diffgeom': list(),
-                                   'diffgeomcount': list(),
-                                   'difftags': list(),
-                                   'difftagscount': list(),
-                                   'versions': list(),
-                                   },
-                           'count': self.datadata[key]['count']
-                          }
+                                   'old': {'diffgeom': list(),
+                                           'diffgeomcount': list(),
+                                           'difftags': list(),
+                                           'difftagscount': list(),
+                                           'versions': list(),
+                                          },
+                                   'count': self.datadata[key]['count']
+                                  }
             for v in val['new'].values():
                 if 'diffgeom' in v.keys():
                     self.data_aggr[key]['new']['diffgeom'].append(1)
@@ -685,54 +688,61 @@ class OsmDataEventPlot():
             print("{} doesn't exist".format(changespath))
         return True
 
-    def plot_oldnew_user(self, output=None):
+    def plot_oldnew_user(self, output=None,
+                         title="Distribution of users according to the first "
+                               "point created in the study area"):
         """Plot user distribution as a pie"""
         labels = []
         values = []
         for k, v in self.userdata.items():
-            labels.append(k)
+            labels.append(k.replace('_', ' '))
             values.append(len(v))
-        fig1, ax1 = plt.subplots()
-        ax1.pie(values, labels=labels, autopct='%1.1f%%', shadow=True)
-        ax1.axis('equal')
+        fig, ax = plt.subplots(tight_layout=True)
+        ax.pie(values, labels=labels, autopct='%1.1f%%', shadow=True)
+        ax.axis('equal')
+        ax.set_title(title, weight='bold')
         if output:
             plt.savefig(output)
         else:
             plt.show()
 
     def plot_oldnew_user_count_boxplot(self, output=None, outliers=None,
-                                       angle=30):
+                                       angle=75, title="Boxplot of edits "
+                                       "per user classes"):
         """Plot number of edits for the user distribution in a boxplot"""
         labels = []
         values = []
         i = 0
         for k, v in self.userdata.items():
-            labels.append(k)
+            labels.append(k.replace('_', ' '))
             values.append(list())
             for z in v.values():
                 values[i].append(z['count'])
             i += 1
-        fig1, ax1 = plt.subplots()
-        ax1.boxplot(values, 0, outliers)
-        ax1.set_xticklabels(labels, rotation=angle)
+        fig, ax = plt.subplots()
+        ax.boxplot(values, 0, outliers)
+        ax.set_xticklabels(labels, rotation=angle)
+        ax.set_title(title, weight='bold')
+        ax.set_ylabel('Number of edits', fontstyle='italic')
         if output:
             plt.savefig(output)
         else:
             plt.show()
 
-    def plot_oldnew_user_count_lines(self, output=None):
+    def plot_oldnew_user_count_lines(self, output=None, angle=75,
+                                     title="Plot statistics on number of edits"
+                                     " per user classes"):
         """Plot mean, max and sum number of edits for the user distribution"""
-        labels = []
+        x_labels = []
         values = []
         minn = []
         maxx = []
         mean = []
         summ = []
-        x = []
+        width = 0.3
         i = 0
         for k, v in self.userdata.items():
-            x.append(i + 1)
-            labels.append(k)
+            x_labels.append(k.replace('_', ' '))
             values.append(list())
             for z in v.values():
                 values[i].append(z['count'])
@@ -741,21 +751,28 @@ class OsmDataEventPlot():
             mean.append(sum(values[i]) / len(values[i]))
             summ.append(sum(values[i]))
             i += 1
-        fig, ax = plt.subplots()
-        linemin, = ax.plot(x, minn, '--', linewidth=2,
-                           label='Min values')
-        linemax, = ax.plot(x, maxx, '--', linewidth=2,
-                           label='Max values')
-        linemean, = ax.plot(x, mean, '--', linewidth=2,
-                            label='mean values')
-        linesum, = ax.plot(x, summ, '--', linewidth=2,
-                           label='Sum values')
+        xs = np.arange(len(x_labels))
+        fig, axis = plt.subplots(figsize=(8, 3), ncols=2)
+        minbar = axis[0].bar(xs, minn, width, color='g')
+        meanbar = axis[0].bar(xs + width, mean, width, color='y')
+        axis[0].set_xticks(xs + width / 2)
+        axis[0].set_xticklabels(x_labels, rotation=angle)
+        axis[0].legend((minbar[0], meanbar[0]), ('Min values', 'Mean values'))
+        axis[0].set_ylabel('Number of edits', fontstyle='italic')
+        maxbar = axis[1].bar(xs, maxx, width, color='g')
+        sumbar = axis[1].bar(xs + width, summ, width, color='y')
+        axis[1].set_xticks(xs + width / 2)
+        axis[1].set_xticklabels(x_labels, rotation=angle)
+        axis[1].legend((maxbar[0], sumbar[0]), ('Max values', 'Sum of values'))
+        fig.suptitle(title, weight='bold')
         if output:
             plt.savefig(output)
         else:
             plt.show()
 
-    def plot_user_mapping_days(self, output=None, outliers=None):
+    def plot_user_mapping_days(self, output=None, outliers=None,
+                               angle=75, title="Boxplot of potential "
+                               "mapping days per user classes"):
         """Plot in a boxplot the number of day from the first edit in the event
         area to the last one"""
         labels = []
@@ -764,7 +781,7 @@ class OsmDataEventPlot():
         i = 0
         for k, v in self.userdata.items():
             x.append(i + 1)
-            labels.append(k)
+            labels.append(k.replace('_', ' '))
             values.append(list())
             for z in v.values():
                 fe = datetime.strptime(z['min_time'], TIME_FORMAT_NOZ)
@@ -772,95 +789,128 @@ class OsmDataEventPlot():
                 diff = le - fe
                 values[i].append(diff.days + 1)
             i += 1
-        plt.figure()
-        plt.boxplot(values, 0, outliers, labels=labels)
+        fig, ax = plt.subplots()
+        ax.boxplot(values, 0, outliers)
+        ax.set_xticklabels(labels, rotation=angle)
+        ax.set_title(title, weight='bold', y=0.999)
+        ax.set_ylabel('Number of potential mapping days', fontstyle='italic')
         if output:
             plt.savefig(output)
         else:
             plt.show()
 
-    def plot_data_changes_pie(self, output=None):
+    def plot_data_changes_pie(self, output=None, title="Percentual of modified"
+                              " data per table"):
         """Plot the percentual of modified data in a pie"""
         labels = ['Old data modified', 'New data modified',
                   'Data not modified']
-        fig, axis = plt.subplots(figsize=(8, 3), nrows=3)
+        fig, axis = plt.subplots(figsize=(8, 5), nrows=3)
+        explode = (0.5, 0.5, 0)
         x = 0
         for key, val in self.data_aggr.items():
             values = []
             values.append(len(val['old']['versions']))
             values.append(len(val['new']['versions']))
             values.append(int(val['count']))
-            axis[x].pie(values, labels=labels, autopct='%1.1f%%', shadow=True)
-            axis[x].set_title(key.replace('_', ' '))
+            axis[x].pie(values, labels=labels, autopct='%1.1f%%', shadow=True,
+                        explode=explode)
+            axis[x].set_title(key.replace('_', ' '),
+                              verticalalignment='center')
             axis[x].axis('equal')
             x += 1
+        fig.suptitle(title, weight='bold', y=0.999)
         if output:
             plt.savefig(output)
         else:
             plt.show()
 
-    def plot_geomtag_diff_histo(self, output=None):
-        """Plot different between geometry and tags changes"""
+    def plot_geomtag_diff_histo(self, output=None, title="Number of changes "
+                                "related to old and new elements per geometry"
+                                " and tags", angle=75):
+        """Plot different between old new element related to geometry and tags
+        changes"""
         width = 0.5
-        xs = range(len(self.datadata.keys()))
-        x_label = []
-        y_geomnew = []
-        y_geomold = []
-        y_tagsnew = []
-        y_tagsold = []
-        for key, val in self.datadata.items():
-            x_label.append(key)
-            y_geomnew.append(len(val['new']['diffgeom']))
-            y_geomold.append(len(val['old']['diffgeom']))
-            y_tagsnew.append(len(val['new']['difftags']))
-            y_tagsold.append(len(val['old']['difftags']))
+        xs = np.arange(1, 5)
+        x_labels = ['Geometry changes in old elements',
+                    'Geometry changes in new elements',
+                    'Tags changes in old elements',
+                    'Tags changes in new elements',]
+        y_geomnew = 0
+        y_geomold = 0
+        y_tagsnew = 0
+        y_tagsold = 0
+        for val in self.datadata.values():
+            for v in val['new'].values():
+                if v['diffgeom']:
+                    y_geomnew += 1
+                if v['difftags']:
+                    y_tagsnew += 1
+            for v in val['old'].values():
+                if v['diffgeom']:
+                    y_geomold += 1
+                if v['difftags']:
+                    y_tagsold += 1
+
         fig, ax = plt.subplots()
-        ax.bar(xs, y_geomold, width, color='red')
-        ax.bar(xs, y_geomnew, width, color='green')
-        ax.bar(xs + width, y_tagsold, width, color='yellow')
-        ax.bar(xs + width, y_tagsnew, width, color='gray')
-        ax.xticks(xs, x_label)
+        ax.bar(xs, [y_geomold, y_geomnew, y_tagsold, y_tagsnew], width)
+        ax.set_xticks(xs)
+        ax.set_xticklabels(x_labels, rotation=angle)
+        ax.set_ylabel("Number of element modified", fontstyle='italic')
+        ax.set_title(title, weight='bold')
         if output:
             plt.savefig(output)
         else:
             plt.show()
 
-    def plot_mean_diff_lines(self, output=None):
+    def plot_mean_max_diff_histo(self, output=None, angle=75,
+                                 title="Mean and max number of changes related"
+                                       " to old and new elements per geometry"
+                                       " and tags"):
         """Plot mean value of number of changes for each element"""
-        xs = range(len(self.datadata.keys()))
-        x_label = []
+        width = 0.5
+        xs = np.arange(1, 5)
+        x_labels = ['Geometry changes in old elements',
+                    'Geometry changes in new elements',
+                    'Tags changes in old elements',
+                    'Tags changes in new elements',]
         y_geomnew = []
         y_geomold = []
         y_tagsnew = []
         y_tagsold = []
-        for key, val in self.datadata.items():
-            x_label.append(key)
-            values = np.array(list(v['new']['diffgeomcount']))
-            y_geomnew.append(values.mean())
-            values = np.array(list(v['new']['difftagscount']))
-            y_tagsnew.append(values.mean())
-            values = np.array(list(v['old']['diffgeomcount']))
-            y_geomold.append(values.mean())
-            values = np.array(list(v['old']['difftagscount']))
-            y_tagsold.append(values.mean())
-        fig, ax = plt.subplots()
-        linemin, = ax.plot(x, minn, '--', linewidth=2,
-                           label='Min values')
-        linemax, = ax.plot(x, maxx, '--', linewidth=2,
-                           label='Max values')
-        linemean, = ax.plot(x, mean, '--', linewidth=2,
-                            label='mean values')
-        linesum, = ax.plot(x, summ, '--', linewidth=2,
-                           label='Sum values')
+        for val in self.datadata.values():
+            for v in val['new'].values():
+                y_geomnew.append(v['diffgeomcount'])
+                y_tagsnew.append(v['difftagscount'])
+            for v in val['old'].values():
+                y_geomold.append(v['diffgeomcount'])
+                y_tagsold.append(v['difftagscount'])
+        fig, axis = plt.subplots(figsize=(8, 3), ncols=2)
+        axis[0].bar(xs, [np.mean(y_geomold), np.mean(y_geomnew),
+                         np.mean(y_tagsold), np.mean(y_tagsnew)],
+                    width, color='red')
+        axis[0].set_xticks(xs + width / 2)
+        axis[0].set_xticklabels(x_labels, rotation=angle)
+        axis[0].set_title("Mean values", verticalalignment='center')
+        axis[1].bar(xs, [np.max(y_geomold), np.max(y_geomnew),
+                         np.max(y_tagsold), np.max(y_tagsnew)],
+                    width, color='yellow')
+        axis[1].set_xticks(xs + width / 2)
+        axis[1].set_xticklabels(x_labels, rotation=angle)
+        axis[1].set_title("Max values", verticalalignment='center')
+
+        axis[0].set_ylabel("Number of changes per element", fontstyle='italic')
+        fig.suptitle(title, weight='bold', y=0.999)
         if output:
             plt.savefig(output)
         else:
             plt.show()
 
-    def plot_hourly_edit_count(self, output=None):
+    def plot_hourly_edit_count(self, output=None, title="Hourly number of "
+                               "edits per day"):
         """Plot daily data about number of edit per hour"""
         xs = range(24)
-        fig, axis = plt.subplots(figsize=(8, 3),
+        xs_label = range(0, 24, 2)
+        fig, axis = plt.subplots(figsize=(10, 4),
                                  ncols=len(self.changes['hourlyeditscount']))
         plot = 0
         maxy = 0
@@ -870,17 +920,22 @@ class OsmDataEventPlot():
                 maxy = mxy
         for k, v in self.changes['hourlyeditscount'].items():
             axis[plot].plot(xs, list(v.values()), linewidth=2)
-            axis[plot].set_title(k)
-            axis[plot].set_xticks(xs)
+            axis[plot].set_title(k, size='medium', verticalalignment='center')
+            axis[plot].set_xticks(xs_label)
             axis[plot].set_yticks(range(0, maxy, int(maxy / 10)))
-            axis[plot].set_xticklabels(list(v.keys()))
+            axis[plot].set_xticklabels(xs_label)
+            if plot == 0:
+                axis[plot].set_ylabel('Edits', fontstyle='italic')
             plot += 1
+        fig.text(0.5, 0, 'Hours', fontstyle='italic')
+        fig.suptitle(title, weight='bold', y=0.999)
         if output:
             plt.savefig(output)
         else:
             plt.show()
 
-    def plot_daily_user_count(self, output=None):
+    def plot_daily_user_count(self, output=None, title="Daily users editing "
+                              "OpenStreetMap database"):
         """Plot data about number of user per day"""
         maxy = None
         if len(self.changes['dailyusercount']) == 0:
@@ -888,18 +943,18 @@ class OsmDataEventPlot():
             return False
         elif len(self.changes['dailyusercount']) == 1:
             fig, axis = plt.subplots()
-            for k, v in self.changes['dailyusercount'].items():
+            for v in self.changes['dailyusercount'].values():
                 xs = range(len(v.keys()))
                 axis.plot(xs, list(v.values()), linewidth=2)
-                axis.set_title(k)
                 axis.set_xticks(range(0, len(v.keys()), 4))
                 axis.set_xticklabels(reduce_labels(list(v.keys()), 4),
                                      rotation='vertical')
+                axis.set_ylabel("Number of users", fontstyle='italic')
         elif len(self.changes['dailyusercount']) > 1:
             fig, axis = plt.subplots(figsize=(8, 3),
                                      ncols=len(self.changes['dailyusercount']))
             maxy = 0
-            for k, v in self.changes['dailyusercount'].item():
+            for v in self.changes['dailyusercount'].values():
                 mxy = max(list(v.values()))
                 if mxy > maxy:
                     maxy = mxy
@@ -907,33 +962,39 @@ class OsmDataEventPlot():
             for k, v in self.changes['dailyusercount'].items():
                 xs = range(len(v.keys()))
                 axis[plot].plot(xs, list(v.values()), linewidth=2)
-                axis[plot].set_title(k)
                 axis[plot].set_xticks(range(0, len(v.keys()), 4))
                 axis[plot].set_yticks(range(0, maxy, int(maxy / 10)))
                 axis[plot].set_xticklabels(reduce_labels(list(v.keys()), 4),
                                            rotation='vertical')
+                if plot == 0:
+                    axis[plot].set_ylabel("Number of users",
+                                          fontstyle='italic')
                 plot += 1
+        fig.suptitle(title, weight='bold')
         if output:
             plt.savefig(output)
         else:
             plt.show()
 
-    def plot_daily_edits_classes(self, output=None):
+    def plot_daily_edits_classes(self, output=None, title="Daily number of "
+                                 "edits for user classes"):
         """Plot data about number of edits per user class"""
         if len(self.changes['dailyeditsclasses']) == 0:
             print("No data loaded")
             return False
         elif len(self.changes['dailyeditsclasses']) == 1:
             fig, axis = plt.subplots()
-            for day, classes in self.changes['dailyeditsclasses'].items():
-                for clas, values in classes.items():
+            for classes in self.changes['dailyeditsclasses'].values():
+                for values in classes.values():
                     x_values = range(len(values.keys()))
                     axis.plot(x_values, list(values.values()), '--',
-                              linewidth=2, label=clas)
+                              linewidth=2)
                 axis.set_xticks(range(0, len(values.keys()), 4))
                 axis.set_xticklabels(reduce_labels(list(values.keys()), 4),
                                      rotation='vertical')
                 axis.legend(loc='right')
+                axis.set_ylabel("Number of edits", fontstyle='italic')
+        fig.suptitle(title, weight='bold')
         if output:
             plt.savefig(output)
         else:
@@ -1052,18 +1113,18 @@ class OsmTileLogEventAnalyze():
         infile = os.path.join(self.workdir, filename)
         f = open(infile)
         lines = f.readlines()
-        date = filename.replace('tiles-', '').replace('.txt', '')
+        mydate = filename.replace('tiles-', '').replace('.txt', '')
         for line in lines:
             linesplit = line.split(' ')
             tile = linesplit[0]
             val = linesplit[1]
             if tile in self.tiles:
                 if not output:
-                    self.out['tiles'][tile][date] = int(val)
-                    self.out['dates'][date][tile] = int(val)
+                    self.out['tiles'][tile][mydate] = int(val)
+                    self.out['dates'][mydate][tile] = int(val)
                 elif isinstance(output, dict):
-                    output['tiles'][tile][date] = int(val)
-                    output['dates'][date][tile] = int(val)
+                    output['tiles'][tile][mydate] = int(val)
+                    output['dates'][mydate][tile] = int(val)
         end = time.time()
         print(filename, end-start, output)
 
@@ -1173,7 +1234,7 @@ class OsmTileLogEventPlot():
     """Class to get plots from OsmTileLogEventAnalize outputs"""
     def __init__(self, tilesdates=None, tilestiles=None):
         if isinstance(tilesdates, dict):
-            self.tdates = tilesdate
+            self.tdates = tilesdates
         if isinstance(tilestiles, dict):
             self.ttiles = tilestiles
 
@@ -1186,7 +1247,7 @@ class OsmTileLogEventPlot():
         else:
             print("{} doesn't exist".format(tdatespath))
         if os.path.exists(ttilespath):
-            f = open(path)
+            f = open(ttilespath)
             self.ttiles = json.loads(f.read())
             f.close()
         else:
@@ -1201,11 +1262,11 @@ class OsmTileLogEventPlot():
         y_sum = list(self.tdates['sum'].values())
         y_avg = list(self.tdates['avg'].values())
         fig, axis = plt.subplots(figsize=(8, 3), ncols=2)
-        line_sum = axis[0].plot(x_values, y_sum, linewidth=2)
+        axis[0].plot(x_values, y_sum, linewidth=2)
         axis[0].set_title("The sum of visited tile for day")
         axis[0].set_xticks(xs)
         axis[0].set_xticklabels(x_labels, rotation='vertical')
-        line_avg = axis[1].plot(x_values, y_avg, linewidth=2)
+        axis[1].plot(x_values, y_avg, linewidth=2)
         axis[1].set_title("The mean of visited tile for day")
         axis[1].set_xticklabels(x_labels, rotation='vertical')
         axis[1].set_xticks(xs)
@@ -1217,7 +1278,8 @@ class OsmTileLogEventPlot():
 def main():
     """Execute main code"""
     import argparse
-    parser = argparse.ArgumentParser(description='OSM data analysis to check event')
+    parser = argparse.ArgumentParser(description='OSM data analysis to check '
+                                                 'event contributions')
     parser.add_argument('date', help='The date of event in iso format '
                         'YYYY-MM-DDTHH:MM:SSZ')
     parser.add_argument('geojson', help='Path to geojson of the area '
