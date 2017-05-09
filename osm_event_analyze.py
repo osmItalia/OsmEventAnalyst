@@ -386,12 +386,12 @@ class OsmDataEventAnalyze():
                                                             ta=table)
         new_query = "select osm_id, hstore_to_json(tags) as tags, st_astext" \
                     "(way) as way from {ta} where tags -> 'osm_timestamp' >=" \
-                    " '{da}' and tags -> 'osm_version' = '1';".format(da=self.eventdate,
-                                                                      ta=table)
+                    " '{da}' and tags -> 'osm_version' = '1'" \
+                    ";".format(da=self.eventdate, ta=table)
         mod_query = "select osm_id, hstore_to_json(tags) as tags, st_astext" \
                     "(way) as way from {ta} where tags -> 'osm_timestamp' >=" \
-                    " '{da}' and tags -> 'osm_version' != '1';".format(da=self.eventdate,
-                                                                       ta=table)
+                    " '{da}' and tags -> 'osm_version' != '1'" \
+                    ";".format(da=self.eventdate, ta=table)
         count_query = "select count(osm_id) from {ta}".format(ta=table)
         countdata = self._execute(count_query)
         self.finaldata[table]['count'] = countdata[0][0]
@@ -475,7 +475,8 @@ class OsmDataEventAnalyze():
     def get_count_user_per_day(self, fday=None, lday=None):
         """Return the number of user modifing the area for each table"""
         fday = fday if fday is not None else self.eventdate.date()
-        self.finalchanges['dailyusercount'][fday.strftime("%Y-%m-%d")] = {}
+        fdaystr = fday.strftime("%Y-%m-%d")
+        self.finalchanges['dailyusercount'][fdaystr] = {}
         query = "select mydate, count(myuser) from ("
         tqueries = []
         for tab in TABLES:
@@ -495,9 +496,9 @@ class OsmDataEventAnalyze():
         for d in data:
             while day <= d[0]:
                 if day < d[0]:
-                    self.finalchanges['dailyusercount'][fday.strftime("%Y-%m-%d")][day.strftime("%Y-%m-%d")] = 0
+                    self.finalchanges['dailyusercount'][fdaystr][day.strftime("%Y-%m-%d")] = 0
                 else:
-                    self.finalchanges['dailyusercount'][fday.strftime("%Y-%m-%d")][d[0].strftime("%Y-%m-%d")] = d[1]
+                    self.finalchanges['dailyusercount'][fdaystr][d[0].strftime("%Y-%m-%d")] = d[1]
                 day = day + delta
         return True
 
@@ -639,7 +640,7 @@ class OsmDataEventPlot():
                                            'difftags': list(),
                                            'difftagscount': list(),
                                            'versions': list(),
-                                   },
+                                          },
                                    'old': {'diffgeom': list(),
                                            'diffgeomcount': list(),
                                            'difftags': list(),
