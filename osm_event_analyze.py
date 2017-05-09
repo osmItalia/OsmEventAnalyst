@@ -617,8 +617,7 @@ class OsmDataEventAnalyze():
 
 class OsmDataEventPlot():
     """Class to get plots from OsmDataEventAnalize outputs"""
-    def __init__(self, userdata=None, datadata=None, tilesdates=None,
-                 tilestiles=None, changes=None):
+    def __init__(self, userdata=None, datadata=None, changes=None):
         self.data_aggr = {}
         if isinstance(userdata, dict):
             self.userdata = userdata
@@ -626,10 +625,6 @@ class OsmDataEventPlot():
             self.datadata = datadata
             if self.datadata:
                 self._aggregate_data()
-        if isinstance(tilesdates, dict):
-            self.tilesdates = tilesdate
-        if isinstance(tilestiles, dict):
-            self.tilestiles = tilestiles
         if isinstance(changes, dict):
             self.changes = changes
 
@@ -667,40 +662,27 @@ class OsmDataEventPlot():
                     self.data_aggr[key]['old']['difftagscount'].append(v['difftagscount'])
                 self.data_aggr[key]['old']['versions'].append(v['versions'])
 
-    def set_userdata(self, path):
+    def set_data(self, userpath=None, datapath=None, changespath=None):
         """Load users' data from a json file"""
-        f = open(path)
-        self.userdata = json.loads(f.read())
-        f.close()
-        return True
-
-    def set_datadata(self, path):
-        """Load data data from a json file"""
-        f = open(path)
-        self.datadata = json.loads(f.read(), object_pairs_hook=OrderedDict)
-        f.close()
-        self._aggregate_data()
-        return True
-
-    def set_tilesdates(self, path):
-        """Load tiles dates data from a json file"""
-        f = open(path)
-        self.tilesdates = json.loads(f.read(), object_pairs_hook=OrderedDict)
-        f.close()
-        return True
-
-    def set_tilestiles(self, path):
-        """Load tiles dates data from a json file"""
-        f = open(path)
-        self.tilestiles = json.loads(f.read())
-        f.close()
-        return True
-
-    def set_changes(self, path):
-        """Load changes data from a json file"""
-        f = open(path)
-        self.changes = json.loads(f.read(), object_pairs_hook=OrderedDict)
-        f.close()
+        if os.path.exists(userpath):
+            f = open(userpath)
+            self.userdata = json.loads(f.read())
+            f.close()
+        else:
+            print("{} doesn't exist".format(userpath))
+        if os.path.exists(datapath):
+            f = open(datapath)
+            self.datadata = json.loads(f.read(), object_pairs_hook=OrderedDict)
+            f.close()
+            self._aggregate_data()
+        else:
+            print("{} doesn't exist".format(datapath))
+        if os.path.exists(changespath):
+            f = open(changespath)
+            self.changes = json.loads(f.read(), object_pairs_hook=OrderedDict)
+            f.close()
+        else:
+            print("{} doesn't exist".format(changespath))
         return True
 
     def plot_oldnew_user(self, output=None):
@@ -833,16 +815,16 @@ class OsmDataEventPlot():
             y_tagsnew.append(len(val['new']['difftags']))
             y_tagsold.append(len(val['old']['difftags']))
         fig, ax = plt.subplots()
-        plot_geomold = ax.bar(xs, y_geomold, width, color='red')
-        plot_geomnew = ax.bar(xs, y_geomnew, width, color='green')
-        plot_tagsold = ax.bar(xs + width, y_tagsold, width, color='yellow')
-        plot_tagsnew = ax.bar(xs + width, y_tagsnew, width, color='gray')
+        ax.bar(xs, y_geomold, width, color='red')
+        ax.bar(xs, y_geomnew, width, color='green')
+        ax.bar(xs + width, y_tagsold, width, color='yellow')
+        ax.bar(xs + width, y_tagsnew, width, color='gray')
         ax.xticks(xs, x_label)
         if output:
             plt.savefig(output)
         else:
             plt.show()
-            
+
     def plot_mean_diff_lines(self, output=None):
         """Plot mean value of number of changes for each element"""
         xs = range(len(self.datadata.keys()))
@@ -870,27 +852,6 @@ class OsmDataEventPlot():
                             label='mean values')
         linesum, = ax.plot(x, summ, '--', linewidth=2,
                            label='Sum values')
-        if output:
-            plt.savefig(output)
-        else:
-            plt.show()
-
-    def plot_tiles_avg_sum_dates(self, output=None):
-        """Plot lines related to sum and mean of visited tiles"""
-        x_values = range(len(self.tilesdates['sum']))
-        xs = range(0, len(self.tilesdates['sum']), 3)
-        x_labels = reduce_labels(list(self.tilesdates['sum'].keys()), 3)
-        y_sum = list(self.tilesdates['sum'].values())
-        y_avg = list(self.tilesdates['avg'].values())
-        fig, axis = plt.subplots(figsize=(8, 3), ncols=2)
-        line_sum = axis[0].plot(x_values, y_sum, linewidth=2)
-        axis[0].set_title("The sum of visited tile for day")
-        axis[0].set_xticks(xs)
-        axis[0].set_xticklabels(x_labels, rotation='vertical')
-        line_avg = axis[1].plot(x_values, y_avg, linewidth=2)
-        axis[1].set_title("The mean of visited tile for day")
-        axis[1].set_xticklabels(x_labels, rotation='vertical')
-        axis[1].set_xticks(xs)
         if output:
             plt.savefig(output)
         else:
@@ -1207,6 +1168,51 @@ class OsmTileLogEventAnalyze():
         if tilespath:
             write_output(tilespath, self.final_tiles)
         return True
+
+class OsmTileLogEventPlot():
+    """Class to get plots from OsmTileLogEventAnalize outputs"""
+    def __init__(self, tilesdates=None, tilestiles=None):
+        if isinstance(tilesdates, dict):
+            self.tdates = tilesdate
+        if isinstance(tilestiles, dict):
+            self.ttiles = tilestiles
+
+    def set_data(self, tdatespath=None, ttilespath=None):
+        """Load tiles dates data from a json file"""
+        if os.path.exists(tdatespath):
+            f = open(tdatespath)
+            self.tdates = json.loads(f.read(), object_pairs_hook=OrderedDict)
+            f.close()
+        else:
+            print("{} doesn't exist".format(tdatespath))
+        if os.path.exists(ttilespath):
+            f = open(path)
+            self.ttiles = json.loads(f.read())
+            f.close()
+        else:
+            print("{} doesn't exist".format(ttilespath))
+        return True
+
+    def plot_tiles_avg_sum_dates(self, output=None):
+        """Plot lines related to sum and mean of visited tiles"""
+        x_values = range(len(self.tdates['sum']))
+        xs = range(0, len(self.tdates['sum']), 3)
+        x_labels = reduce_labels(list(self.tdates['sum'].keys()), 3)
+        y_sum = list(self.tdates['sum'].values())
+        y_avg = list(self.tdates['avg'].values())
+        fig, axis = plt.subplots(figsize=(8, 3), ncols=2)
+        line_sum = axis[0].plot(x_values, y_sum, linewidth=2)
+        axis[0].set_title("The sum of visited tile for day")
+        axis[0].set_xticks(xs)
+        axis[0].set_xticklabels(x_labels, rotation='vertical')
+        line_avg = axis[1].plot(x_values, y_avg, linewidth=2)
+        axis[1].set_title("The mean of visited tile for day")
+        axis[1].set_xticklabels(x_labels, rotation='vertical')
+        axis[1].set_xticks(xs)
+        if output:
+            plt.savefig(output)
+        else:
+            plt.show()
 
 def main():
     """Execute main code"""
