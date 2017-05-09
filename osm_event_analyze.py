@@ -1222,23 +1222,34 @@ class OsmTileLogEventAnalyze():
                 pass
         return True
 
-    def output(self, datespath=None, tilespath=None):
+    def output(self, datespath=None, tilespath=None, datesaggrpath=None,
+               tilesaggrpath=None):
         """Write final result to json file"""
         if datespath:
-            write_output(datespath, self.final_dates)
+            write_output(datespath, self.out['dates'])
         if tilespath:
+            write_output(tilespath, self.out['tiles'])
+        if datesaggrpath:
+            write_output(datespath, self.final_dates)
+        if tilesaggrpath:
             write_output(tilespath, self.final_tiles)
         return True
 
 class OsmTileLogEventPlot():
     """Class to get plots from OsmTileLogEventAnalize outputs"""
-    def __init__(self, tilesdates=None, tilestiles=None):
+    def __init__(self, tilesdates=None, tilestiles=None, aggrdates=None,
+                 aggrtiles=None):
         if isinstance(tilesdates, dict):
             self.tdates = tilesdates
         if isinstance(tilestiles, dict):
             self.ttiles = tilestiles
+        if isinstance(aggrdates, dict):
+            self.adates = aggrdates
+        if isinstance(tilestiles, dict):
+            self.atiles = aggrtiles
 
-    def set_data(self, tdatespath=None, ttilespath=None):
+    def set_data(self, tdatespath=None, ttilespath=None, adatespath=None,
+                 atilespath=None):
         """Load tiles dates data from a json file"""
         if os.path.exists(tdatespath):
             f = open(tdatespath)
@@ -1252,9 +1263,21 @@ class OsmTileLogEventPlot():
             f.close()
         else:
             print("{} doesn't exist".format(ttilespath))
+        if os.path.exists(adatespath):
+            f = open(adatespath)
+            self.adates = json.loads(f.read())
+            f.close()
+        else:
+            print("{} doesn't exist".format(adatespath))
+        if os.path.exists(atilespath):
+            f = open(atilespath)
+            self.atiles = json.loads(f.read())
+            f.close()
+        else:
+            print("{} doesn't exist".format(atilespath))
         return True
 
-    def plot_tiles_avg_sum_dates(self, output=None):
+    def plot_tiles_avg_sum_dates(self, output=None, angle='vertical'):
         """Plot lines related to sum and mean of visited tiles"""
         x_values = range(len(self.tdates['sum']))
         xs = range(0, len(self.tdates['sum']), 3)
@@ -1265,15 +1288,51 @@ class OsmTileLogEventPlot():
         axis[0].plot(x_values, y_sum, linewidth=2)
         axis[0].set_title("The sum of visited tile for day")
         axis[0].set_xticks(xs)
-        axis[0].set_xticklabels(x_labels, rotation='vertical')
+        axis[0].set_xticklabels(x_labels, rotation=angle)
         axis[1].plot(x_values, y_avg, linewidth=2)
         axis[1].set_title("The mean of visited tile for day")
-        axis[1].set_xticklabels(x_labels, rotation='vertical')
+        axis[1].set_xticklabels(x_labels, rotation=angle)
         axis[1].set_xticks(xs)
         if output:
             plt.savefig(output)
         else:
             plt.show()
+
+    def plot_tile_dates(self, coords, zooms, output=None, angle='horizontal',
+                        title="Plot daily number of visualization per tile"):
+        """Plot dates for a tile"""
+        if len(zooms) % 2:
+            print("'zooms' variable should be even")
+            return False
+        fig, axis = plt.subplots(figsize=(10, len(zooms) * 2), ncols=2,
+                                 nrows=int(len(zooms) / 2))
+        x = 0
+        for zo in range(len(zooms)):
+            tile = mercantile.tile(*coords, zooms[zo])
+            tilestr = "{z}/{x}/{y}".format(z=tile.z, x=tile.x, y=tile.y)
+            dates = self.ttiles[tilestr]
+            x_values = range(len(dates.keys()))
+            xs = range(0, len(dates.keys()), 3)
+            x_labels = reduce_labels(list(dates.keys()), 3)
+            if not zo % 2:
+                y = 0
+            else:
+                y = 1
+            axis[x, y].plot(x_values, list(dates.values()), linewidth=2)
+            axis[x, y].set_xticks(xs)
+            axis[x, y].set_xticklabels(x_labels, rotation=angle)
+            axis[x, y].set_title("Tile {}".format(tilestr),
+                                 verticalalignment='center')
+            if zo % 2:
+                x += 1
+        fig.text(0, 0.5, 'Number of visualization', fontstyle='italic',
+                 rotation='vertical')
+        fig.suptitle(title, weight='bold', y=0.95)
+        if output:
+            plt.savefig(output)
+        else:
+            plt.show()
+
 
 def main():
     """Execute main code"""
