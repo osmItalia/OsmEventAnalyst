@@ -949,26 +949,37 @@ class OsmDataEventPlot():
     def plot_hourly_edit_count(self, output=None, title="Hourly number of "
                                "edits per day"):
         """Plot daily data about number of edit per hour"""
+        data = self.changes['hourlyeditscount']
+        if len(data) % 2:
+            print("changes['hourlyeditscount'] variable should be even")
+            return False
         xs = range(24)
         xs_label = range(0, 24, 2)
-        fig, axis = plt.subplots(figsize=(10, 4),
-                                 ncols=len(self.changes['hourlyeditscount']))
-        plot = 0
+        fig, axis = plt.subplots(figsize=(8, int(len(data) / 2 * 2)), ncols=2, 
+                                 nrows=int(len(data) / 2))
+        fig.subplots_adjust(hspace=.2, wspace=.5)
         maxy = 0
-        for v in self.changes['hourlyeditscount'].values():
+        for v in data.values():
             mxy = max(list(v.values()))
             if mxy > maxy:
                 maxy = mxy
-        for k, v in self.changes['hourlyeditscount'].items():
-            axis[plot].plot(xs, list(v.values()), linewidth=2)
-            axis[plot].set_title(k, size='medium', verticalalignment='center')
-            axis[plot].set_xticks(xs_label)
-            axis[plot].set_yticks(range(0, maxy, int(maxy / 10)))
-            axis[plot].set_xticklabels(xs_label)
-            if plot == 0:
-                axis[plot].set_ylabel('Edits', fontstyle='italic')
-            plot += 1
+        x = 0
+        n = 0
+        for k, v in data.items():
+            if not n % 2:
+                y = 0
+            else:
+                y = 1
+            axis[x, y].plot(xs, list(v.values()), linewidth=2)
+            axis[x, y].set_title(k, size='medium', verticalalignment='center')
+            axis[x, y].set_xticks(xs_label)
+            axis[x, y].set_yticks(range(0, maxy, int(maxy / 10)))
+            axis[x, y].set_xticklabels(xs_label)
+            if n % 2:
+                x += 1
+            n += 1
         fig.text(0.5, 0, 'Hours', fontstyle='italic')
+        fig.text(0, 0.5, 'Edits', fontstyle='italic')
         fig.suptitle(title, weight='bold', y=0.999)
         if output:
             plt.savefig(output)
