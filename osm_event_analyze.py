@@ -186,6 +186,21 @@ def reduce_labels(labels, step):
         x += 1
     return out
 
+def values_in_time(values, sday=None, eday=None):
+    """Return list of dates and values removing dates before sday and after
+    eday"""
+    dates = []
+    vals = []
+    for k, v in values.items():
+        if sday and k < sday:
+            continue
+        elif eday and k > eday:
+            continue
+        else:
+            dates.append(k)
+            vals.append(v)
+    return dates, vals
+
 
 class JsonOsmEncoder(json.JSONEncoder):
     """Class to convert correctly datetime object to json"""
@@ -303,10 +318,10 @@ class OsmDataEventAnalyze():
                                 " = '{us}'".format(ta=tab, us=myuser))
             days += ' UNION '.join(tdays)
             days += ') as query order by mydate'
-            
+
             changesets += ' UNION '.join(tchanges)
             changesets += ') as query'
-            
+
             mydays = self._execute(days)
             mychanges = self._execute(changesets)
             # add value to dictionary
@@ -961,7 +976,7 @@ class OsmDataEventPlot():
             plt.show()
 
     def plot_daily_user_count(self, output=None, title="Daily users editing "
-                              "OpenStreetMap database"):
+                              "OpenStreetMap database", sday=None, eday=None):
         """Plot data about number of user per day"""
         maxy = None
         if len(self.changes['dailyusercount']) == 0:
@@ -970,10 +985,15 @@ class OsmDataEventPlot():
         elif len(self.changes['dailyusercount']) == 1:
             fig, axis = plt.subplots()
             for v in self.changes['dailyusercount'].values():
-                xs = range(len(v.keys()))
-                axis.plot(xs, list(v.values()), linewidth=2)
-                axis.set_xticks(range(0, len(v.keys()), 4))
-                axis.set_xticklabels(reduce_labels(list(v.keys()), 4),
+                if sday or eday:
+                    keys, values = values_in_time(v, sday, eday)
+                else:
+                    keys = v.keys()
+                    values = list(v.values())
+                xs = range(len(keys))
+                axis.plot(xs, values, linewidth=2)
+                axis.set_xticks(range(0, len(keys), 4))
+                axis.set_xticklabels(reduce_labels(list(keys), 4),
                                      rotation='vertical')
                 axis.set_ylabel("Number of users", fontstyle='italic')
         elif len(self.changes['dailyusercount']) > 1:
@@ -986,11 +1006,16 @@ class OsmDataEventPlot():
                     maxy = mxy
             plot = 0
             for k, v in self.changes['dailyusercount'].items():
-                xs = range(len(v.keys()))
-                axis[plot].plot(xs, list(v.values()), linewidth=2)
-                axis[plot].set_xticks(range(0, len(v.keys()), 4))
+                if sday or eday:
+                    keys, values = values_in_time(v, sday, eday)
+                else:
+                    keys = v.keys()
+                    values = list(v.values())
+                xs = range(len(keys))
+                axis[plot].plot(xs, list(values), linewidth=2)
+                axis[plot].set_xticks(range(0, len(keys), 4))
                 axis[plot].set_yticks(range(0, maxy, int(maxy / 10)))
-                axis[plot].set_xticklabels(reduce_labels(list(v.keys()), 4),
+                axis[plot].set_xticklabels(reduce_labels(list(keys), 4),
                                            rotation='vertical')
                 if plot == 0:
                     axis[plot].set_ylabel("Number of users",
