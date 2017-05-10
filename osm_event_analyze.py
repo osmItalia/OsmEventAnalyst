@@ -1053,23 +1053,40 @@ class OsmDataEventPlot():
         else:
             plt.show()
 
-    def plot_daily_edits_classes(self, output=None, title="Daily number of "
-                                 "edits for user classes"):
+    def plot_daily_edits_classes(self, output=None, title="Daily stacked "
+                                 "number of edits for user classes", sday=None,
+                                 eday=None):
         """Plot data about number of edits per user class"""
+        y = 0
+        leg = []
         if len(self.changes['dailyeditsclasses']) == 0:
             print("No data loaded")
             return False
         elif len(self.changes['dailyeditsclasses']) == 1:
             fig, axis = plt.subplots()
             for classes in self.changes['dailyeditsclasses'].values():
-                for values in classes.values():
-                    x_values = range(len(values.keys()))
-                    axis.plot(x_values, list(values.values()), '--',
-                              linewidth=2)
-                axis.set_xticks(range(0, len(values.keys()), 4))
-                axis.set_xticklabels(reduce_labels(list(values.keys()), 4),
+                for k, vals in classes.items():
+                    color = set_color_user_classes(k)
+                    if sday or eday:
+                        keys, values = values_in_time(vals, sday, eday)
+                    else:
+                        keys = vals.keys()
+                        values = list(vals.values())
+                    x_values = range(len(keys))
+                    if y == 0:
+                        leg.append(axis.bar(x_values, list(values), 0.3,
+                                            color=color))
+                        bot = np.array(list(values))
+                    else:
+                        print(bot, len(bot))
+                        leg.append(axis.bar(x_values, list(values), 0.3,
+                                            bottom=bot, color=color))
+                        bot = bot + np.array(list(values))
+                    y += 1
+                axis.set_xticks(range(0, len(keys), 4))
+                axis.set_xticklabels(reduce_labels(list(keys), 4),
                                      rotation='vertical')
-                axis.legend(loc='right')
+                axis.legend(leg, classes.keys(),loc='right')
                 axis.set_ylabel("Number of edits", fontstyle='italic')
         fig.suptitle(title, weight='bold')
         if output:
