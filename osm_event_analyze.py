@@ -1017,16 +1017,17 @@ class OsmDataEventPlot():
             else:
                 y = 1
             axis[x, y].plot(xs, list(v.values()), linewidth=2)
-            axis[x, y].set_title(k, size='medium', verticalalignment='center')
+            axis[x, y].set_title(k, size='small', weight='bold',
+                                 verticalalignment='center')
             axis[x, y].set_xticks(xs_label)
             axis[x, y].set_yticks(range(0, maxy, int(maxy / 10)))
             axis[x, y].set_xticklabels(xs_label)
             if n % 2:
                 x += 1
             n += 1
-        fig.text(0.5, 0, 'Hours', fontstyle='italic')
-        fig.text(0, 0.5, 'Edits', fontstyle='italic')
-        fig.suptitle(title, weight='bold', y=0.999)
+        fig.text(0.5, 0.05, 'Hours', fontstyle='italic')
+        fig.text(0.05, 0.5, 'Edits', fontstyle='italic')
+        fig.suptitle(title, weight='bold', y=0.95)
         if output:
             plt.savefig(output)
         else:
@@ -1109,7 +1110,6 @@ class OsmDataEventPlot():
                                             color=color))
                         bot = np.array(list(values))
                     else:
-                        print(bot, len(bot))
                         leg.append(axis.bar(x_values, list(values), 0.3,
                                             bottom=bot, color=color))
                         bot = bot + np.array(list(values))
