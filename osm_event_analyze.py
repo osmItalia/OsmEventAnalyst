@@ -201,6 +201,20 @@ def values_in_time(values, sday=None, eday=None):
             vals.append(v)
     return dates, vals
 
+def set_color_user_classes(clas):
+    """Return the color for the selected class"""
+    if clas == "EB":
+        return "#b30000"
+    elif clas == "EBA":
+        return "#e60000"
+    elif clas == "EA":
+        return "#ff3333"
+    elif clas == "AO":
+        return "#1aff1a"
+    elif clas == "AI":
+        return "#00b300"
+    else:
+        print("Class not supported")
 
 class JsonOsmEncoder(json.JSONEncoder):
     """Class to convert correctly datetime object to json"""
@@ -735,11 +749,14 @@ class OsmDataEventPlot():
         """Plot user distribution as a pie"""
         labels = []
         values = []
+        colors = []
         for k, v in self.userdata.items():
-            labels.append(k.replace('_', ' '))
+            colors.append(set_color_user_classes(k))
+            labels.append(k)
             values.append(len(v))
-        fig, ax = plt.subplots(tight_layout=True)
-        ax.pie(values, labels=labels, autopct='%1.1f%%', shadow=True)
+        fig, ax = plt.subplots()
+        ax.pie(values, labels=labels, autopct='%1.1f%%', shadow=True,
+               colors=colors)
         ax.axis('equal')
         ax.set_title(title, weight='bold')
         if output:
@@ -755,7 +772,7 @@ class OsmDataEventPlot():
         values = []
         i = 0
         for k, v in self.userdata.items():
-            labels.append(k.replace('_', ' '))
+            labels.append(k)
             values.append(list())
             for z in v.values():
                 values[i].append(z['count'])
@@ -783,7 +800,7 @@ class OsmDataEventPlot():
         width = 0.3
         i = 0
         for k, v in self.userdata.items():
-            x_labels.append(k.replace('_', ' '))
+            x_labels.append(k)
             values.append(list())
             for z in v.values():
                 values[i].append(z['count'])
