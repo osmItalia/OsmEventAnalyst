@@ -264,12 +264,17 @@ class OsmDataEventAnalyze():
             mind = None
             maxd = None
             count = 0
+            days = "select mydate from ("
+            tdays = []
+            changesets = "select changes from ("
+            tchanges = []
             for tab in TABLES:
+                myuser = user.replace("'", "\''")
                 # select min and max time of mapping in the area
                 dates_query = "select min(tags -> 'osm_timestamp') as " \
                               "min_date, max(tags -> 'osm_timestamp') as " \
                               "max_date from {ta} where tags -> 'osm_user' " \
-                              "= '{us}'".format(ta=tab, us=user)
+                              "= '{us}'".format(ta=tab, us=myuser)
                 tab_dates = self._execute(dates_query)
                 # if user doesn't exist in this table skip to next user
                 if tab_dates[0][0] is None:
@@ -288,12 +293,30 @@ class OsmDataEventAnalyze():
                 # select count of edits for each user and sum to edits in
                 # other table
                 count_query = "select count(tags) from {ta} where tags -> " \
-                              "'osm_user' = '{us}'".format(ta=tab, us=user)
+                              "'osm_user' = '{us}'".format(ta=tab, us=myuser)
                 count += int(self._execute(count_query)[0][0])
+                tdays.append("select distinct DATE(tags -> 'osm_timestamp') " \
+                             "AS mydate from {ta} where tags -> " \
+                             "'osm_user' = '{us}'".format(ta=tab, us=myuser))
+                tchanges.append("select distinct tags -> 'osm_changeset' AS " \
+                                "changes from {ta} where tags -> 'osm_user'" \
+                                " = '{us}'".format(ta=tab, us=myuser))
+            days += ' UNION '.join(tdays)
+            days += ') as query order by mydate'
+            
+            changesets += ' UNION '.join(tchanges)
+            changesets += ') as query'
+            
+            mydays = self._execute(days)
+            mychanges = self._execute(changesets)
             # add value to dictionary
             self.users[user]['min_time'] = mind
             self.users[user]['max_time'] = maxd
             self.users[user]['count'] = count
+            # mapping days in the area
+            self.users[user]['ndays'] = len(mydays)
+            # number of changesets in the area
+            self.users[user]['nchanges'] = len(mychanges)
         return True
 
     def get_new_old_user(self):
@@ -313,10 +336,10 @@ class OsmDataEventAnalyze():
                     old[k] = v
             else:
                 new[k] = v
-        # user already mapping the area but they stop to editing before event
-        self.finalusers['old_user_mapping_only_before_event'] = old_old
-        # user already mapping the area continuing after event
-        self.finalusers['old_user_mapping_before_after_event'] = old
+        # EB: existing users who modified the area only before the event
+        self.finalusers['EB'] = old_old
+        # EBA: existing users who modified the area before and after the event
+        self.finalusers['EBA'] = old
         return old_old, old, new
 
     def real_new_user(self, users):
@@ -340,12 +363,14 @@ class OsmDataEventAnalyze():
                 else:
                     newout[k] = v
                     newout[k]['neiss'] = info
-        # existing user before event but starting to modify event area after
-        self.finalusers['old_user_mapping_only_after_event'] = old
-        # new user but first point is in a different area
-        self.finalusers['new_user_first_point_other_area'] = newout
-        # new user first point is in the case study area
-        self.finalusers['new_user_first_point_this_area'] = newin
+        # EA: existing users who modified the area only after the event
+        self.finalusers['EA'] = old
+        # AO: users registered to OSM after the event who made the first
+        # edit outside the event area
+        self.finalusers['AO'] = newout
+        # AI: users registered to OSM after the event who made the first
+        # point inside the event area
+        self.finalusers['AI'] = newin
         return old, newout, newin
 
     def get_info_newuser(self, users):
@@ -372,7 +397,7 @@ class OsmDataEventAnalyze():
                         tag[k] = v
             info[user]['max_tag'] = tag
             # added new info
-            self.finalusers['new_user_first_point_this_area'][user].update(info[user])
+            self.finalusers['AI'][user].update(info[user])
         return True
 
     def get_data(self, table):
@@ -509,7 +534,7 @@ class OsmDataEventAnalyze():
         daystr = fday.strftime("%Y-%m-%d")
         self.finalchanges['dailyeditsclasses'][daystr] = {}
         for k, v in self.finalusers.items():
-            if k == 'old_user_mapping_only_before_event':
+            if k == 'EB':
                 continue
             query = "select mydate, count(osm_id) from ("
             tqueries = []
