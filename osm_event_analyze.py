@@ -30,7 +30,7 @@ import multiprocessing as mltp
 from datetime import datetime
 from datetime import date
 from datetime import timedelta
-from collections import OrderedDict
+from collections import OrderedDict, defaultdict
 import matplotlib.pyplot as plt
 try:
     import psycopg2
@@ -270,6 +270,18 @@ class OsmDataEventAnalyze():
             "ST_GeometryFromText('{point}'))".format(poly=self.area,
                                                      point=point)
         return self._execute(q)[0][0]
+
+    def _get_end_day(self):
+        """Return the maximum day"""
+        query = "select max(maxday) from ("
+        tqueries = []
+        for tab in TABLES:
+            tqueries.append("select max(DATE(tags -> 'osm_timestamp')) " \
+                            "as maxday from {ta}".format(ta=tab))
+        query += ' UNION '.join(tqueries)
+        query += ') as query'
+        data = self._execute(query)
+        return data[0][0]
 
     def get_users(self):
         """Return the users for that area"""
@@ -526,41 +538,53 @@ class OsmDataEventAnalyze():
                 self.finaldata[table][status] = out
         return out
 
-    def get_count_user_per_day(self, fday=None, lday=None):
+    def get_count_user_per_day(self, sday=None, eday=None):
         """Return the number of user modifing the area for each table"""
-        fday = fday if fday is not None else self.eventdate.date()
-        fdaystr = fday.strftime("%Y-%m-%d")
-        self.finalchanges['dailyusercount'][fdaystr] = {}
+        sday = sday if sday is not None else self.eventdate.date()
+        sdaystr = sday.strftime("%Y-%m-%d")
+        if eday:
+            eday = eday
+        else:
+            eday = self._get_end_day()
+        self.finalchanges['dailyusercount'][sdaystr] = defaultdict(OrderedDict)
         query = "select mydate, count(myuser) from ("
         tqueries = []
         for tab in TABLES:
             tquery = "SELECT DISTINCT DATE(tags -> 'osm_timestamp') AS " \
                      "mydate, tags -> 'osm_user' AS myuser FROM {ta} " \
                      "where tags -> 'osm_timestamp' >= '{da}'".format(ta=tab,
-                                                                      da=fday)
-            if lday:
+                                                                      da=sday)
+            if eday:
                 tquery += " AND tags -> 'osm_timestamp' < " \
-                          "'{da}'".format(da=lday)
+                          "'{da}'".format(da=eday)
             tqueries.append(tquery)
         query += ' UNION '.join(tqueries)
         query += ") as query group by mydate order by mydate;"
         data = self._execute(query)
         delta = timedelta(1)
-        day = fday
+        day = sday
         for d in data:
             while day <= d[0]:
                 if day < d[0]:
-                    self.finalchanges['dailyusercount'][fdaystr][day.strftime("%Y-%m-%d")] = 0
+                    self.finalchanges['dailyusercount'][sdaystr][day.strftime("%Y-%m-%d")] = 0
                 else:
-                    self.finalchanges['dailyusercount'][fdaystr][d[0].strftime("%Y-%m-%d")] = d[1]
+                    self.finalchanges['dailyusercount'][sdaystr][d[0].strftime("%Y-%m-%d")] = d[1]
                 day = day + delta
+        # to insert the missing dates
+        while day <= eday:
+            self.finalchanges['dailyusercount'][sdaystr][day.strftime("%Y-%m-%d")] = 0
+            day = day + delta
         return True
 
-    def get_count_edits_classes_per_day(self, fday=None):
+    def get_count_edits_classes_per_day(self, sday=None, eday=None):
         """Return the number of edits for user class modifing the area
         for each table"""
-        fday = fday if fday is not None else self.eventdate.date()
-        daystr = fday.strftime("%Y-%m-%d")
+        sday = sday if sday is not None else self.eventdate.date()
+        if eday:
+            eday = eday
+        else:
+            eday = self._get_end_day()
+        daystr = sday.strftime("%Y-%m-%d")
         self.finalchanges['dailyeditsclasses'][daystr] = {}
         for k, v in self.finalusers.items():
             if k == 'EB':
@@ -578,19 +602,27 @@ class OsmDataEventAnalyze():
             query += ") as query group by mydate order by mydate;"
             data = self._execute(query)
             delta = timedelta(1)
-            day = fday
+            day = sday
             for d in data:
+                # to be sure to have same number of days for all the classes
+                if d[0] > eday:
+                    break
+                # to fill the days with 0 visit
                 while day <= d[0]:
                     if day < d[0]:
                         self.finalchanges['dailyeditsclasses'][daystr][k][day.strftime("%Y-%m-%d")] = 0
                     else:
                         self.finalchanges['dailyeditsclasses'][daystr][k][d[0].strftime("%Y-%m-%d")] = d[1]
                     day = day + delta
+            # to insert the missing dates
+            while day <= eday:
+                self.finalchanges['dailyeditsclasses'][daystr][k][day.strftime("%Y-%m-%d")] = 0
+                day = day + delta
         return True
 
-    def get_count_edits_per_hour(self, day=None):
+    def get_count_edits_per_hour(self, sday=None):
         """Return the number of changes in the area per hours"""
-        day = day if day is not None else self.eventdate.strftime("%Y-%m-%d")
+        day = sday if sday is not None else self.eventdate.strftime("%Y-%m-%d")
         self.finalchanges['hourlyeditscount'][day] = {}
         query = "select hour, sum(osmid) from ("
         tqueries = []
