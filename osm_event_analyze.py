@@ -839,13 +839,10 @@ class OsmDataEventPlot():
         i = 0
         for k, v in self.userdata.items():
             x.append(i + 1)
-            labels.append(k.replace('_', ' '))
+            labels.append(k)
             values.append(list())
             for z in v.values():
-                fe = datetime.strptime(z['min_time'], TIME_FORMAT_NOZ)
-                le = datetime.strptime(z['max_time'], TIME_FORMAT_NOZ)
-                diff = le - fe
-                values[i].append(diff.days + 1)
+                values[i].append(z['ndays'])
             i += 1
         fig, ax = plt.subplots()
         ax.boxplot(values, 0, outliers)
