@@ -868,7 +868,7 @@ class OsmDataEventPlot():
             values.append(len(val['new']['versions']))
             values.append(int(val['count']))
             axis[x].pie(values, labels=labels, autopct='%1.1f%%', shadow=True,
-                        explode=explode)
+                        explode=explode, colors=['r','g','y'])
             axis[x].set_title(key.replace('_', ' '),
                               verticalalignment='center')
             axis[x].axis('equal')
@@ -939,17 +939,18 @@ class OsmDataEventPlot():
             for v in val['old'].values():
                 y_geomold.append(v['diffgeomcount'])
                 y_tagsold.append(v['difftagscount'])
-        fig, axis = plt.subplots(figsize=(8, 3), ncols=2)
+        fig, axis = plt.subplots(figsize=(11, 3), ncols=2)
+        fig.subplots_adjust(hspace=1)
         axis[0].bar(xs, [np.mean(y_geomold), np.mean(y_geomnew),
                          np.mean(y_tagsold), np.mean(y_tagsnew)],
                     width, color='red')
-        axis[0].set_xticks(xs + width / 2)
+        axis[0].set_xticks(xs)
         axis[0].set_xticklabels(x_labels, rotation=angle)
         axis[0].set_title("Mean values", verticalalignment='center')
         axis[1].bar(xs, [np.max(y_geomold), np.max(y_geomnew),
                          np.max(y_tagsold), np.max(y_tagsnew)],
-                    width, color='yellow')
-        axis[1].set_xticks(xs + width / 2)
+                    width, color='green')
+        axis[1].set_xticks(xs)
         axis[1].set_xticklabels(x_labels, rotation=angle)
         axis[1].set_title("Max values", verticalalignment='center')
 
@@ -969,9 +970,9 @@ class OsmDataEventPlot():
             return False
         xs = range(24)
         xs_label = range(0, 24, 2)
-        fig, axis = plt.subplots(figsize=(8, int(len(data) / 2 * 2)), ncols=2, 
+        fig, axis = plt.subplots(figsize=(8, int(len(data) / 2 * 3)), ncols=2, 
                                  nrows=int(len(data) / 2))
-        fig.subplots_adjust(hspace=.2, wspace=.5)
+        fig.subplots_adjust(wspace=1.)
         maxy = 0
         for v in data.values():
             mxy = max(list(v.values()))
