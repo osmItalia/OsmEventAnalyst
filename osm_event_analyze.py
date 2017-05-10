@@ -861,10 +861,9 @@ class OsmDataEventPlot():
             plt.show()
 
     def plot_user_mapping_days(self, output=None, outliers=None,
-                               angle=75, title="Boxplot of potential "
-                               "mapping days per user classes"):
-        """Plot in a boxplot the number of day from the first edit in the event
-        area to the last one"""
+                               angle=75, title="Boxplot of mapping days "
+                               "in study area per user classes"):
+        """Plot in a boxplot the number of mapping days in the area"""
         labels = []
         values = []
         x = []
@@ -880,7 +879,7 @@ class OsmDataEventPlot():
         ax.boxplot(values, 0, outliers)
         ax.set_xticklabels(labels, rotation=angle)
         ax.set_title(title, weight='bold', y=0.999)
-        ax.set_ylabel('Number of potential mapping days', fontstyle='italic')
+        ax.set_ylabel('Number of mapping days', fontstyle='italic')
         if output:
             plt.savefig(output)
         else:
