@@ -26,15 +26,15 @@ DATA PREPARATION
 2) Cut with osmium the the full file using one of the following command ::
 
 	# using bounding box
-	osmium extract --with-history --bbox LEFT,BOTTOM,RIGHT,TOP history-latest.osm.pbf --output YOURAREA.osh
+	osmium extract --with-history --bbox LEFT,BOTTOM,RIGHT,TOP history-latest.osm.pbf --output YOURAREA.osh.pbf
 	# using geojson or poly file
-	osmium extract --with-history --polygon history-latest.osm.pbf --output YOURAREA.osh
+	osmium extract --with-history --polygon GEOJSON history-latest.osm.pbf --output YOURAREA.osh.pbf
 
 3) If you want you can filter the previous output according one or two timestamp with the following command,
    otherwise pass to the next step ::
    
-    # cut for the entire 2016
-    osmium time-filter history-latest.osm.pbf MINTIME MAXTIME --output YOURAREA_2016.osh
+        # cut for the entire 2016
+        osmium time-filter YOURAREA.osm.pbf MINTIME MAXTIME --output YOURAREA_2016.osh.pbf
 
 4) Create a new PostgreSQL/PostGIS database
 
@@ -47,9 +47,10 @@ DATA PREPARATION
 
 	# -j to store all the tags in hstore column
 	# -x to add extra attribute into tables
-	# -s use the style
+	# -S use the style
 	# -C set the RAM to use for cache (bigger value is faster) 
-	osm2pgsql -j -x -s osmanalytic.style -C 2000 YOUR.osh
+        # DON'T USE -s FLAG OTHERWISE YOU WILL GET AND ERROR
+	osm2pgsql -j -x -S osmanalytic.style -C 2000 YOUR.osh
 
 HOT TO USE OSMANALYTIC
 ----------------------
