@@ -30,6 +30,7 @@ import multiprocessing as mltp
 from datetime import datetime
 from datetime import date
 from datetime import timedelta
+import urllib.request
 from collections import OrderedDict, defaultdict
 import matplotlib.pyplot as plt
 try:
@@ -63,6 +64,7 @@ NEISURL = "http://www.hdyc.neis-one.org/search/{user}"
 NEIS_TIMEFORMAT = "%B %d{ext}, %Y"
 NEIS_TIMEFORMAT2 = "%b %d{ext}, %Y"
 LOCK = mltp.Lock()
+
 
 def get_neiss_info(user):
     """Return a dictionary with the info from Neiss service"""
@@ -228,6 +230,20 @@ class JsonOsmEncoder(json.JSONEncoder):
         else:
             return json.JSONEncoder.default(self, obj)
 
+def check_url(req):
+    """
+    Checks that a given URL is reachable.
+    :param url: A URL
+    :rtype: bool
+    """
+    request = urllib.request.Request(req)
+    request.get_method = lambda: 'HEAD'
+
+    try:
+        urllib.request.urlopen(request)
+        return True
+    except urllib.request.HTTPError:
+        return False
 
 class OsmDataEventAnalyze():
     """Class to analyze OpenStreetMap history data"""
@@ -387,15 +403,24 @@ class OsmDataEventAnalyze():
         """Return if a user is a new user after event or if the user already
         mapped in different area
         """
+        new = {}
         newout = {}
         newin = {}
         old = {}
+        check = True
         for k, v in users.items():
             info = get_neiss_info(k)
-            since = convert_neissday(info['contributor']['since'])
+            if 'blablub' in info.keys():
+                print("Error with user {us}".format(us=k))
+                continue
+            if 'contributor' in info.keys():
+                since = convert_neissday(info['contributor']['since'])
+            else:
+                print("Error with user {us}".format(us=k))
+                continue
             if since < self.eventdate:
                 old[k] = v
-            else:
+            elif isinstance(info['node'], dict):
                 poi = "POINT({x} {y})".format(x=info['node']['f_lon'],
                                               y=info['node']['f_lat'])
                 if self._point_in_area(poi):
@@ -404,15 +429,27 @@ class OsmDataEventAnalyze():
                 else:
                     newout[k] = v
                     newout[k]['neiss'] = info
-        # EA: existing users who modified the area only after the event
-        self.finalusers['EA'] = old
-        # AO: users registered to OSM after the event who made the first
-        # edit outside the event area
-        self.finalusers['AO'] = newout
-        # AI: users registered to OSM after the event who made the first
-        # point inside the event area
-        self.finalusers['AI'] = newin
-        return old, newout, newin
+            else:
+                check = False
+                new[k] = v
+                new[k]['neiss'] = info
+        if check:
+            # EA: existing users who modified the area only after the event
+            self.finalusers['EA'] = old
+            # AO: users registered to OSM after the event who made the first
+            # edit outside the event area
+            self.finalusers['AO'] = newout
+            # AI: users registered to OSM after the event who made the first
+            # point inside the event area
+            self.finalusers['AI'] = newin
+            return old, newout, newin
+        else:
+            # EA: existing users who modified the area only after the event
+            self.finalusers['EA'] = old
+            # AN: users registered to OSM after the event who it is impossible
+            # to check first edit since problem with HYDC request
+            self.finalusers['AN'] = new
+            return old, new, None
 
     def get_info_newuser(self, users):
         """Return info about new users"""
@@ -709,6 +746,9 @@ class OsmDataEventPlot():
     """Class to get plots from OsmDataEventAnalize outputs"""
     def __init__(self, userdata=None, datadata=None, changes=None):
         self.data_aggr = {}
+        self.userdata = None
+        self.datadata = None
+        self.changes = None
         if isinstance(userdata, dict):
             self.userdata = userdata
         if isinstance(datadata, dict):
@@ -754,26 +794,61 @@ class OsmDataEventPlot():
 
     def set_data(self, userpath=None, datapath=None, changespath=None):
         """Load users' data from a json file"""
-        if os.path.exists(userpath):
-            f = open(userpath)
-            self.userdata = json.loads(f.read())
-            f.close()
-        else:
-            print("{} doesn't exist".format(userpath))
-        if os.path.exists(datapath):
-            f = open(datapath)
-            self.datadata = json.loads(f.read(), object_pairs_hook=OrderedDict)
-            f.close()
-            self._aggregate_data()
-        else:
-            print("{} doesn't exist".format(datapath))
-        if os.path.exists(changespath):
-            f = open(changespath)
-            self.changes = json.loads(f.read(), object_pairs_hook=OrderedDict)
-            f.close()
-        else:
-            print("{} doesn't exist".format(changespath))
+        if userpath:
+            if os.path.exists(userpath):
+                f = open(userpath)
+                self.userdata = json.loads(f.read())
+                f.close()
+            else:
+                print("{} doesn't exist".format(userpath))
+        if datapath:
+            if os.path.exists(datapath):
+                f = open(datapath)
+                self.datadata = json.loads(f.read(), object_pairs_hook=OrderedDict)
+                f.close()
+                self._aggregate_data()
+            else:
+                print("{} doesn't exist".format(datapath))
+        if changespath:
+            if os.path.exists(changespath):
+                f = open(changespath)
+                self.changes = json.loads(f.read(), object_pairs_hook=OrderedDict)
+                f.close()
+            else:
+                print("{} doesn't exist".format(changespath))
         return True
+
+    def plot_all(self, basename='', outdir='.', of='png'):
+        """Run all plots"""
+        path = os.path.join(outdir, os.path.basename(basename))
+        self.plot_oldnew_user(output="{bn}_{fu}.{out}".format(bn=path,
+                                                              fu='oldnew_user',
+                                                              out=of))
+        self.plot_oldnew_user_count_boxplot(output="{bn}_"
+                                            "{fu}.{out}".format(bn=path,
+                                                                fu='oldnew_user_count_boxplot',
+                                                                out=of))
+        self.plot_user_mapping_days(output="{bn}_{fu}.{out}".format(bn=path,
+                                                                    fu='user_mapping_days',
+                                                                    out=of))
+        self.plot_data_changes_pie(output="{bn}_{fu}.{out}".format(bn=path,
+                                                                   fu='data_changes_pie',
+                                                                   out=of))
+        self.plot_geomtag_diff_histo(output="{bn}_{fu}.{out}".format(bn=path,
+                                                                     fu='geomtag_diff_histo',
+                                                                     out=of))
+        self.plot_mean_max_diff_histo(output="{bn}_{fu}.{out}".format(bn=path,
+                                                                      fu='mean_max_diff_histo',
+                                                                      out=of))
+        self.plot_hourly_edit_count(output="{bn}_{fu}.{out}".format(bn=path,
+                                                                    fu='hourly_edit_count',
+                                                                    out=of))
+        self.plot_daily_user_count(output="{bn}_{fu}.{out}".format(bn=path,
+                                                                   fu='daily_user_count',
+                                                                   out=of))
+        self.plot_daily_edits_classes(output="{bn}_{fu}.{out}".format(bn=path,
+                                                                      fu='daily_edits_classes',
+                                                                      out=of))
 
     def plot_oldnew_user(self, output=None,
                          title="Distribution of users according to the first "
@@ -995,7 +1070,14 @@ class OsmDataEventPlot():
     def plot_hourly_edit_count(self, output=None, title="Hourly number of "
                                "edits per day"):
         """Plot daily data about number of edit per hour"""
-        data = self.changes['hourlyeditscount']
+        if not self.changes:
+            print("No data for changes")
+            return False
+        elif 'hourlyeditscount' in self.changes.keys():
+            data = self.changes['hourlyeditscount']
+        else:
+            print("No data for changes")
+            return False
         if len(data) % 2:
             print("changes['hourlyeditscount'] variable should be even")
             return False
@@ -1037,7 +1119,7 @@ class OsmDataEventPlot():
                               "OpenStreetMap database", sday=None, eday=None):
         """Plot data about number of user per day"""
         maxy = None
-        if len(self.changes['dailyusercount']) == 0:
+        if not self.changes:
             print("No data loaded")
             return False
         elif len(self.changes['dailyusercount']) == 1:
@@ -1091,7 +1173,10 @@ class OsmDataEventPlot():
         """Plot data about number of edits per user class"""
         y = 0
         leg = []
-        if len(self.changes['dailyeditsclasses']) == 0:
+        if not self.changes:
+            print("No data loaded")
+            return False
+        elif len(self.changes['dailyeditsclasses']) == 0:
             print("No data loaded")
             return False
         elif len(self.changes['dailyeditsclasses']) == 1:
@@ -1156,25 +1241,30 @@ class OsmTileLogEventAnalyze():
         elif os.path.exists(filNoXZDir):
             print("{} already exists".format(filNoXZDir))
             return True
-        filSave = open(filDir, "wb")
-        http = requests.get(fileurl, timeout=self.timeout)
-        orig_size = int(http.headers['Content-Length'])
-        filSave.write(http.content)
-        filSave.close()
+        if check_url(fileurl):
+            filSave = open(filDir, "wb")
+            http = requests.get(fileurl, timeout=self.timeout)
+            orig_size = int(http.headers['Content-Length'])
+            filSave.write(http.content)
+            filSave.close()
 
-        transf_size = int(os.path.getsize(filSave.name))
-        if orig_size is not None:
-            if transf_size == orig_size:
-                print("File {name} downloaded correctly".format(name=file))
-                return True
+            transf_size = int(os.path.getsize(filSave.name))
+            if orig_size is not None:
+                if transf_size == orig_size:
+                    print("File {name} downloaded correctly".format(name=file))
+                    return True
+                else:
+                    print("File {name} downloaded but sizes are "
+                          "different".format(name=file))
+                    time.sleep(5)
+                    self._download_file(file)
             else:
-                print("File {name} downloaded but sizes are "
-                      "different".format(name=file))
-                time.sleep(5)
-                self._download_file(file)
+                print("File {name} downloaded, but not checked".format(name=file))
+                return True
         else:
-            print("File {name} downloaded, but not checked".format(name=file))
-            return True
+            print("File {fi} does not exist in {ur}".format(fi=file,
+                                                            ur=self.url))
+            return False
 
     def _extract_file(self, file, remove=True):
         """Extract a singolar XZ file"""
@@ -1257,9 +1347,11 @@ class OsmTileLogEventAnalyze():
         """Download and extract a singolar tiles log file"""
         self.out['dates'][file] = {}
         myfile = LOGS_FILE.format(day=file)
-        self._download_file(myfile)
-        self._extract_file(myfile, remove)
-        return True
+        if self._download_file(myfile):
+            self._extract_file(myfile, remove)
+            return True
+        else:
+            return False
 
 
     def download_tileslog_days(self, days=15, remove=True):
@@ -1300,8 +1392,8 @@ class OsmTileLogEventAnalyze():
         for m in range(1, 13):
             fil = "tiles-{ye}-{mo:02}-{da}.txt.xz".format(ye=year, mo=m,
                                                           da=day)
-            self._download_file(fil)
-            self._extract_file(fil, remove)
+            if self._download_file(fil):
+                self._extract_file(fil, remove)
 
     def _analyze_files(self, cpu=None):
         """Execute analysis using multiprocess"""
@@ -1458,6 +1550,14 @@ class OsmTileLogEventPlot():
         else:
             plt.show()
 
+    def plot_all(self, coord, basename='', outdir='.', zooms=[10,19], of='png'):
+        """Run all plots"""
+        path = os.path.join(outdir, basename)
+        self.plot_tiles_avg_sum_dates(output="{bn}_{fu}".format(bn=path,
+                                                                fu='tiles_avg_sum_dates'))
+        self.plot_tile_dates(coord, zooms,
+                             output="{bn}_{fu}".format(bn=path,
+                                                       fu='tile_dates'))
 
 def main():
     """Execute main code"""
@@ -1468,16 +1568,20 @@ def main():
                         'YYYY-MM-DDTHH:MM:SSZ')
     parser.add_argument('geojson', help='Path to geojson of the area '
                         'to monitor')
+    parser.add_argument('-p', '--plot', help="Activate plots, set output "
+                        "directory.")
     subparsers = parser.add_subparsers(help='sub-commands help',
                                        dest='subparser')
     parser_data = subparsers.add_parser('data')
-    parser_data.add_argument('conn')
+    parser_data.add_argument('conn', help='The connection string like '
+                             '"dbname=test user=postgres password=secret"')
     parser_data.add_argument('-u', '--user_output', help='Path to output json '
                              'file with data related to users')
     parser_data.add_argument('-d', '--data_output', help='Path to output json '
                              'file with data related to data')
     parser_tiles = subparsers.add_parser('tiles')
-    parser_tiles.add_argument('workdir')
+    parser_tiles.add_argument('workdir', help='The directory where to save '
+                              'the plot')
     parser_tiles.add_argument('-d', '--dates_output', help='Path to output json'
                               ' file with data related to tiles grouped by '
                               'dates')
@@ -1486,27 +1590,42 @@ def main():
                               'tiles')
     parser_tiles.add_argument('-c', '--cpu', default=None, help='Run analysis '
                               'in using multiprocessing', type=int)
+    parser_tiles.add_argument('-C', '--coords', default=None, type=int,
+                              help='Set coordinates for tiles analysis, '
+                              'in Google Mercartor EPSG 3857')
     args = parser.parse_args()
     if args.subparser == 'data':
-        osmea = OsmDataEventAnalyze(args.conn, args.date, args.geojson)
+        osmea = OsmDataEventAnalyze(args.date, args.conn, args.geojson)
         # get all user in the area
+        print("Getting USER...")
         osmea.get_users()
         # get info for each user
+        print("Analyzing USER info...")
         osmea.get_info()
         # get old and new user in this area
         oldusersno, oldusersyes, newusers = osmea.get_new_old_user()
         # get real new user
         newusersarea, newusersrealout, newusersrealin = osmea.real_new_user(newusers)
-        # get info about new user starting editing in the area
-        osmea.get_info_newuser(newusersrealin)
+        if newusersrealin is not None:
+            # get info about new user starting editing in the area
+            osmea.get_info_newuser(newusersrealin)
         # get data for each table
+        print("Started with tables:")
         for table in TABLES:
+            print("Ananlyzing '{ta}' table".format(ta=table))
             olddata, newdata, modidata = osmea.get_data(table)
             olds = osmea.compare_data(olddata, modidata)
             news = osmea.compare_data(newdata, modidata)
             osmea.analyze_data(olds, table, 'old')
             osmea.analyze_data(news, table, 'new')
+        print("Writing output")
         osmea.output(args.user_output, args.data_output)
+        if args.plot:
+            print("Plotting data")
+            osmplot = OsmDataEventPlot(osmea.finalusers, osmea.finaldata,
+                                       osmea.finalchanges)
+            base = args.geojson.replace('.geojson', '').replace('.json', '')
+            osmplot.plot_all(base, args.plot)
     elif args.subparser == 'tiles':
         multi = False
         if args.cpu:
@@ -1518,6 +1637,12 @@ def main():
         osmtile.download_tileslog_year()
         osmtile.analyze(multi, args.cpu)
         osmtile.output(args.dates_output, args.tile_output)
+        if args.plot:
+            osmplot = OsmTileLogEventPlot(args.dates_output, args.tile_output)
+            base = args.geojson.replace('.geojson', '').replace('.json', '')
+            osmplot.plot_tiles_avg_sum_dates(os.path.join(args.plot, base))
+            if args.coords:
+                osmplot.plot_tile_dates()
 
 if __name__ == "__main__":
     main()
